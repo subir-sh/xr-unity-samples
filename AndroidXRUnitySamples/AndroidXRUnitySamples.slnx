@@ -1,0 +1,14 @@
+﻿<Solution>
+  <Project Path="AndroidXRUnitySamples.csproj" />
+  <Project Path="Assembly-CSharp.csproj" />
+  <Project Path="AndroidXRUnitySamples.Depth.csproj" />
+  <Project Path="AndroidXRUnitySamples.DeviceDetector.csproj" />
+  <Project Path="Unity.XR.Interaction.Toolkit.Samples.StarterAssets.Editor.csproj" />
+  <Project Path="Unity.XR.Interaction.Toolkit.Samples.StarterAssets.csproj" />
+  <Project Path="AndroidXRUnitySamples.Home.csproj" />
+  <Project Path="AndroidXRUnitySamples.Editor.csproj" />
+  <Project Path="AndroidXRUnitySamples.SurfaceCanvas.csproj" />
+  <Project Path="Unity.XR.Interaction.Toolkit.Samples.Hands.csproj" />
+  <Project Path="Unity.XR.Interaction.Toolkit.Samples.Hands.Editor.csproj" />
+  <Project Path="Unity.XR.Hands.Samples.VisualizerSample.csproj" />
+</Solution>

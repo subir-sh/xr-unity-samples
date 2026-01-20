@@ -68,12 +68,12 @@ Material:
     - _Cull: 1
     - _Culling: 2
     - _DstBlend: 10
-    - _DstBlendAlpha: 1
+    - _DstBlendAlpha: 10
     - _Offset: 0.0015
     - _QueueControl: 1
     - _QueueOffset: 0
     - _SrcBlend: 5
-    - _SrcBlendAlpha: 0
+    - _SrcBlendAlpha: 1
     - _StencilComp: 8
     - _StencilPassOp: 0
     - _StencilRef: 0

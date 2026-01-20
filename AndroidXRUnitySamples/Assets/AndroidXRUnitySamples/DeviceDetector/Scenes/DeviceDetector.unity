@@ -42,7 +42,8 @@ RenderSettings:
 --- !u!157 &3
 LightmapSettings:
   m_ObjectHideFlags: 0
-  serializedVersion: 12
+  serializedVersion: 13
+  m_BakeOnSceneLoad: 0
   m_GISettings:
     serializedVersion: 2
     m_BounceScale: 1
@@ -269,6 +270,8 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -290,6 +293,7 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
@@ -324,17 +328,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Version: 3
   m_UsePipelineSettings: 1
   m_AdditionalLightsShadowResolutionTier: 2
-  m_LightLayerMask: 1
-  m_RenderingLayers: 1
   m_CustomShadowLayers: 0
-  m_ShadowLayerMask: 1
-  m_ShadowRenderingLayers: 1
   m_LightCookieSize: {x: 1, y: 1}
   m_LightCookieOffset: {x: 0, y: 0}
   m_SoftShadowQuality: 0
+  m_RenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_ShadowRenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_Version: 4
+  m_LightLayerMask: 1
+  m_ShadowLayerMask: 1
+  m_RenderingLayers: 1
+  m_ShadowRenderingLayers: 1
 --- !u!108 &597882363
 Light:
   m_ObjectHideFlags: 0
@@ -445,7 +455,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 877494197}
+  m_Father: {fileID: 1985394181}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!65 &685049136
 BoxCollider:
@@ -468,11 +478,6 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.075, y: 0.025, z: 0.15}
   m_Center: {x: 0, y: 0, z: 0.03}
---- !u!4 &877494197 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 5455322093069079200, guid: 4dd8498898f5d44a2a6d33cefd150557, type: 3}
-  m_PrefabInstance: {fileID: 1985394180}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1100031069
 GameObject:
   m_ObjectHideFlags: 0
@@ -640,22 +645,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Version: 3
   m_UsePipelineSettings: 1
   m_AdditionalLightsShadowResolutionTier: 2
-  m_LightLayerMask: 1
-  m_RenderingLayers: 1
   m_CustomShadowLayers: 0
-  m_ShadowLayerMask: 1
-  m_ShadowRenderingLayers: 1
   m_LightCookieSize: {x: 1, y: 1}
   m_LightCookieOffset: {x: 0, y: 0}
   m_SoftShadowQuality: 0
---- !u!4 &1293604097 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 5461968411850887254, guid: 4dd8498898f5d44a2a6d33cefd150557, type: 3}
-  m_PrefabInstance: {fileID: 1985394180}
-  m_PrefabAsset: {fileID: 0}
+  m_RenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_ShadowRenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_Version: 4
+  m_LightLayerMask: 1
+  m_ShadowLayerMask: 1
+  m_RenderingLayers: 1
+  m_ShadowRenderingLayers: 1
 --- !u!1 &1541116786
 GameObject:
   m_ObjectHideFlags: 0
@@ -763,6 +769,8 @@ LineRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -784,6 +792,7 @@ LineRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
@@ -882,7 +891,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1293604097}
+  m_Father: {fileID: 1985394181}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!65 &1740237167
 BoxCollider:
@@ -973,6 +982,10 @@ PrefabInstance:
       propertyPath: m_LocalPosition.x
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4449088868406941649, guid: 4dd8498898f5d44a2a6d33cefd150557, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 4810292467464805959, guid: 4dd8498898f5d44a2a6d33cefd150557, type: 3}
       propertyPath: m_RootOrder
       value: 1
@@ -1017,6 +1030,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5875194224504673841, guid: 4dd8498898f5d44a2a6d33cefd150557, type: 3}
+      propertyPath: m_MeshPrefab
+      value: 
+      objectReference: {fileID: 2249212199108053584, guid: 89f604407b61b824da7407f80e64e7af, type: 3}
     - target: {fileID: 8743936899518034774, guid: 4dd8498898f5d44a2a6d33cefd150557, type: 3}
       propertyPath: m_SizeDelta.x
       value: 0
@@ -1028,14 +1045,19 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:
-    - targetCorrespondingSourceObject: {fileID: 5461968411850887254, guid: 4dd8498898f5d44a2a6d33cefd150557, type: 3}
+    - targetCorrespondingSourceObject: {fileID: 199922940647785467, guid: 4dd8498898f5d44a2a6d33cefd150557, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1740237166}
-    - targetCorrespondingSourceObject: {fileID: 5455322093069079200, guid: 4dd8498898f5d44a2a6d33cefd150557, type: 3}
+    - targetCorrespondingSourceObject: {fileID: 199922940647785467, guid: 4dd8498898f5d44a2a6d33cefd150557, type: 3}
       insertIndex: -1
       addedObject: {fileID: 685049135}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 4dd8498898f5d44a2a6d33cefd150557, type: 3}
+--- !u!4 &1985394181 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 199922940647785467, guid: 4dd8498898f5d44a2a6d33cefd150557, type: 3}
+  m_PrefabInstance: {fileID: 1985394180}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
