@@ -18,7 +18,7 @@ EditorBuildSettings:
     path: Assets/AndroidXRUnitySamples/GazeAndPinch/Scenes/GazeAndPinch.unity
     guid: aadac53c1b4604fa0af143e1e8ed5a20
   - enabled: 0
-    path: Assets/AndroidXRUnitySamples/test/Scenes/SurfaceCanvas.unity
+    path: Assets/AndroidXRUnitySamples/SurfaceCanvas/Scenes/SurfaceCanvas.unity
     guid: a0196ad3df1914180b5765c4280ec892
   - enabled: 0
     path: Assets/AndroidXRUnitySamples/GestureRun/Scenes/GestureRun.unity
@@ -63,7 +63,7 @@ EditorBuildSettings:
     path: Assets/AndroidXRUnitySamples/SurfaceCanvas/Scenes/SurfaceCanvas.unity
     guid: bf1a4bbd4e30bac48ac697d99a377c62
   - enabled: 0
-    path: Assets/AndroidXRUnitySamples/GazeTrackingTest/Scenes/GazeTrackingTest.unity
+    path: Assets/AndroidXRUnitySamples/TestScenes/Scenes/GazeTrackingTest.unity
     guid: 570db6648ee25ef41a131575ea1e0776
   m_configObjects:
     com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: 0f4fe700a3c1a492aab1525ba55eccd0, type: 2}

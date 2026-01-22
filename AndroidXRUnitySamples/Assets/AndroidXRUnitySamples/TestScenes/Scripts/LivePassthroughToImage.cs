@@ -1,0 +1,109 @@
+using UnityEngine;
+using UnityEngine.UI;
+using System.Threading.Tasks;
+using AndroidXRUnitySamples.Gemini; // CameraCaptureBridge, CameraFrameData 사용 
+
+#if UNITY_ANDROID
+using UnityEngine.Android;
+#endif
+
+public class LivePassthroughToImage : MonoBehaviour
+{
+    [Header("UI")]
+    [SerializeField] private RawImage targetRawImage;
+
+    [Header("Capture")]
+    [SerializeField] private int cameraIndex = 0;   
+    [SerializeField] private int width = 512; 
+    [SerializeField] private int height = 512;
+
+    private CameraCaptureBridge _bridge;
+    private Texture2D _tex;
+
+    [SerializeField] private SentisYoloDetector detector;
+    [SerializeField] private int runDetectionEveryNFrames = 3;
+    private int _frameCounter;
+
+    private async void Start()
+    {
+        bool granted = await EnsureCameraPermission();
+        Debug.Log("[Noonchi] [Camera] permission granted? " + granted);
+        if (!granted) return;
+
+        // 브릿지 생성 + 구독은 권한 승인 이후에 함
+        _bridge = new CameraCaptureBridge();
+        _bridge.OnCameraReady += OnCameraReady;
+        _bridge.OnFrameDataReceived += OnFrame;
+        _bridge.OnError += OnError;
+
+        Debug.Log("[Noonchi] [Camera] Bridge created. Waiting for Camera Ready...");
+    }
+
+    // 권한 받았는지 여부를 async하게 전달 (CameraCaptureSample.cs와 비슷하게...)
+    private async Task<bool> EnsureCameraPermission()
+    {
+        if (Permission.HasUserAuthorizedPermission(Permission.Camera))
+            return true;
+
+        var tcs = new TaskCompletionSource<bool>();
+        var cb = new PermissionCallbacks();
+        cb.PermissionGranted += _ => tcs.TrySetResult(true);
+        cb.PermissionDenied += _ => tcs.TrySetResult(false);
+
+        Permission.RequestUserPermission(Permission.Camera, cb);
+        return await tcs.Task;
+    }
+
+    private void OnCameraReady()
+    {
+        // 연속 프레임 캡처 시작 
+        Debug.Log($"[Noonchi] [Camera] OnCameraReady");
+        _bridge.CaptureFrameStream(cameraIndex, width, height);
+    }
+
+    private void OnFrame(CameraFrameData frame)
+    {
+        if (targetRawImage == null) return;
+        if (frame.ImageData == null || frame.ImageData.Length == 0) return;
+
+        // 프레임 크기에 맞춰 Texture 2D 보정 (안해도 됨)
+        if (_tex == null || _tex.width != frame.Width || _tex.height != frame.Height)
+        {
+            if (_tex != null) Destroy(_tex);
+            _tex = new Texture2D(frame.Width, frame.Height, TextureFormat.RGBA32, false);
+            targetRawImage.texture = _tex;
+            targetRawImage.enabled = true;
+        }
+
+        // JPEG --> LoadImage
+        _tex.LoadImage(frame.ImageData);
+
+        if (detector != null && (_frameCounter++ % runDetectionEveryNFrames == 0))
+            detector.SubmitFrame(_tex);
+    }
+
+    private void OnError(CameraCaptureError err)
+    {
+        Debug.Log($"[Noonchi] [Camera] Error: {err.Error}");
+    }
+
+    private void OnDisable()
+    {
+        if (_bridge != null)
+        {
+            _bridge.CaptureFrameStreamStop();
+
+            _bridge.OnCameraReady -= OnCameraReady;
+            _bridge.OnFrameDataReceived -= OnFrame;
+            _bridge.OnError -= OnError;
+            _bridge.Dispose();
+            _bridge = null;
+        }
+
+        if (_tex != null)
+        {
+            Destroy(_tex);
+            _tex = null;
+        }
+    }
+}
