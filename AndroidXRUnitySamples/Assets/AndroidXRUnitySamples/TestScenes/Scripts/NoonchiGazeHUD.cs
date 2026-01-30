@@ -15,7 +15,7 @@ public class NoonchiGazeHUD : MonoBehaviour
     [Header("Pinch Action (log only when performed)")]
     [SerializeField] private InputActionProperty pinchAction;
 
-    // XRI private fields
+    // XRI private fields 
     private FieldInfo _fiTargetEndPoint;
     private FieldInfo _fiHasRaycastHit;
 

@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class DetectionOverlay2D : MonoBehaviour
+public class Detection2DOverlay : MonoBehaviour
 {
     [Header("Sources")]
     [SerializeField] private SentisYoloDetector detector;

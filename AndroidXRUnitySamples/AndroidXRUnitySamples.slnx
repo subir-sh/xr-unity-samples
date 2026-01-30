@@ -1,16 +1,25 @@
 ﻿<Solution>
-  <Project Path="AndroidXRUnitySamples.SurfaceCanvas.csproj" />
   <Project Path="AndroidXRUnitySamples.csproj" />
+  <Project Path="AndroidXRUnitySamples.AvatarMirror.csproj" />
   <Project Path="Assembly-CSharp.csproj" />
+  <Project Path="AndroidXRUnitySamples.TalkingObjects.csproj" />
   <Project Path="AndroidXRUnitySamples.Depth.csproj" />
+  <Project Path="AndroidXRUnitySamples.TabletopMess.csproj" />
+  <Project Path="AndroidXRUnitySamples.GazeAndPinch.csproj" />
+  <Project Path="AndroidXRUnitySamples.ScreenWiper.csproj" />
   <Project Path="AndroidXRUnitySamples.Gemini.csproj" />
-  <Project Path="AndroidXRUnitySamples.DeviceDetector.csproj" />
   <Project Path="Unity.XR.Interaction.Toolkit.Samples.StarterAssets.Editor.csproj" />
+  <Project Path="AndroidXRUnitySamples.SoundArena.csproj" />
+  <Project Path="AndroidXRUnitySamples.MarkerMaze.csproj" />
+  <Project Path="AndroidXRUnitySamples.Drone.csproj" />
   <Project Path="Unity.XR.Interaction.Toolkit.Samples.StarterAssets.csproj" />
-  <Project Path="AndroidXRUnitySamples.Home.csproj" />
   <Project Path="AndroidXRUnitySamples.Editor.csproj" />
+  <Project Path="AndroidXRUnitySamples.SeaThrough.csproj" />
   <Project Path="Unity.XR.Interaction.Toolkit.Samples.Hands.csproj" />
+  <Project Path="AndroidXRUnitySamples.GestureRun.csproj" />
+  <Project Path="AndroidXRUnitySamples.CreatureGaze.csproj" />
   <Project Path="AndroidXRUnitySamples.Gemini.Editor.csproj" />
   <Project Path="Unity.XR.Interaction.Toolkit.Samples.Hands.Editor.csproj" />
   <Project Path="Unity.XR.Hands.Samples.VisualizerSample.csproj" />
+  <Project Path="AndroidXRUnitySamples.TapeMeasure.csproj" />
 </Solution>

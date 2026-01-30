@@ -3,6 +3,8 @@ using UnityEngine.UI;
 using System.Threading.Tasks;
 using AndroidXRUnitySamples.Gemini; // CameraCaptureBridge, CameraFrameData 사용 
 
+// 샘플의 CameraCaptureSample.cs 참고함
+
 #if UNITY_ANDROID
 using UnityEngine.Android;
 #endif
@@ -63,16 +65,18 @@ public class LivePassthroughToImage : MonoBehaviour
 
     private void OnFrame(CameraFrameData frame)
     {
-        if (targetRawImage == null) return;
         if (frame.ImageData == null || frame.ImageData.Length == 0) return;
 
-        // 프레임 크기에 맞춰 Texture 2D 보정 (안해도 됨)
+        // 카메라 캡처 프레임 크기에 맞춰 Texture 2D 보정
         if (_tex == null || _tex.width != frame.Width || _tex.height != frame.Height)
         {
             if (_tex != null) Destroy(_tex);
             _tex = new Texture2D(frame.Width, frame.Height, TextureFormat.RGBA32, false);
-            targetRawImage.texture = _tex;
-            targetRawImage.enabled = true;
+            if (targetRawImage != null)
+            {
+                targetRawImage.texture = _tex;
+                targetRawImage.enabled = true;
+            }
         }
 
         // JPEG --> LoadImage

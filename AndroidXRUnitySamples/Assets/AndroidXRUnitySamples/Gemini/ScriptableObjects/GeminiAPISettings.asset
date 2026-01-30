@@ -13,4 +13,4 @@ MonoBehaviour:
   m_Name: GeminiAPISettings
   m_EditorClassIdentifier: 
   GeminiAPIUrl: 
-  GeminiAPIKey: AIzaSyCNV_ETlPo6iZ9gXkbmh6ZA_ZXK5RDrm10
+  GeminiAPIKey: 

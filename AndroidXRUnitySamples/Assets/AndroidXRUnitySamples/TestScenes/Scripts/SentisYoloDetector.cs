@@ -59,7 +59,7 @@ public class SentisYoloDetector : MonoBehaviour
     {
         public int classId;
         public float score;
-        /// <summary>Normalized XYXY (0..1): x1,y1,x2,y2</summary>
+        /// <summary>Normalized XYXY (0~1): x1,y1,x2,y2</summary>
         public Vector4 box;
     }
 
@@ -78,7 +78,7 @@ public class SentisYoloDetector : MonoBehaviour
 
         _model = ModelLoader.Load(sentisModel);
 
-        // Input typically NCHW: (1,3,H,W)
+        // Input typically NCHW: (1, 3, H, W)
         var inShape = _model.inputs[0].shape;
         _inH = inShape.Get(2);
         _inW = inShape.Get(3);

@@ -66,6 +66,7 @@ EditorBuildSettings:
     path: Assets/AndroidXRUnitySamples/TestScenes/Scenes/GazeTrackingTest.unity
     guid: 570db6648ee25ef41a131575ea1e0776
   m_configObjects:
+    UnityEditor.XR.ARCore.ARCoreSettings: {fileID: 11400000, guid: 1b3a7e8e1b1db024e8a485ef5d948691, type: 2}
     com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: 0f4fe700a3c1a492aab1525ba55eccd0, type: 2}
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 3b3280e934783f7b4bfc0708d249b47f, type: 2}
     com.unity.xr.openxr.settings4: {fileID: 11400000, guid: 8ec08f4f27e4e1fb1b02318de852624e, type: 2}
