@@ -16,8 +16,8 @@ public class LivePassthroughToImage : MonoBehaviour
 
     [Header("Capture")]
     [SerializeField] private int cameraIndex = 0;   
-    [SerializeField] private int width = 512; 
-    [SerializeField] private int height = 512;
+    [SerializeField] private int width = 640; 
+    [SerializeField] private int height = 640;
 
     private CameraCaptureBridge _bridge;
     private Texture2D _tex;

@@ -1,41 +1,56 @@
-using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.XR;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 
-public class Detection3DOverlay : MonoBehaviour
+public class Detection3DOverlayXR : MonoBehaviour
 {
     [Header("Inputs")]
     [SerializeField] private SentisYoloDetector detector;
     [SerializeField] private Camera xrCamera;
 
-    [Header("Raycast")]
+    [Header("AR Raycast")]
     [SerializeField] private ARRaycastManager arRaycast;
-    [SerializeField] private TrackableType arTrackables =
-        TrackableType.Planes | TrackableType.FeaturePoint; // | TrackableType.Depth;
+    [SerializeField] private TrackableType arTrackables = TrackableType.Planes | TrackableType.FeaturePoint;
 
-    [SerializeField] private float maxPhysicsDistance = 10f;
+    [Header("3D UI Box (World-Space Canvas)")]
+    [SerializeField] private RectTransform boxPrefab;   // Image outline + TMP(optional)
+    [SerializeField] private Transform contentParent;   // World Space Canvas 아래
+    [SerializeField] private float persistSeconds = 0.25f;
 
-    [Header("BBox prefab")]
-    [SerializeField] private RectTransform boxPrefab;
-    [SerializeField] private Transform contentParent;
-    [SerializeField] private float persistSeconds = 0.35f;
+    [Header("BBox coords")]
+    [SerializeField] private bool yIsTopLeft = true;    // detector bbox y가 top-left면 true
 
-    [Header("BBox coordinate conventions")]
-    [SerializeField] private bool yIsTopLeft = true;
+    [Header("Left Eye")]
+    [SerializeField] private bool useLeftEyePoseForRays = true;
 
-    [Header("Debug")]
-    [SerializeField] private bool debugLogs = true;
-    [SerializeField] private bool logPerDetection = false;
-    [SerializeField] private float summaryLogEverySeconds = 1.0f;
+    [Header("XR Debug Visualize (LineRenderer)")]
+    [SerializeField] private bool drawDebug = true;
+    [SerializeField] private float debugRayLengthM = 3.0f;
+    [SerializeField] private float debugLineWidthM = 0.01f;
+    [SerializeField] private float debugFallbackDepthM = 2.0f;
+    [SerializeField] private int debugOnlyThisDetectionIndex = 0;
 
-    private float _lastSummary = -999f;
+    // runtime
+    private readonly List<ARRaycastHit> _hits = new(16);
 
     private readonly List<BoxData> _drawn = new();
     private readonly List<BoxData> _pool = new();
+
+    private readonly Vector2[] _cornersVP = new Vector2[4];
+
+    // left-eye InputDevice cache
+    private InputDevice _leftEyeDevice;
+    private bool _leftEyeDeviceFound;
+
+    // debug renderers
+    private LineRenderer _lrCenterRay;      // cyan
+    private LineRenderer _lrViewportRect;   // yellow
+    private LineRenderer _lrDetRect;        // magenta
+    private Transform _hitMarker;           // small sphere (optional)
 
     private class BoxData
     {
@@ -47,324 +62,354 @@ public class Detection3DOverlay : MonoBehaviour
     private void Awake()
     {
         if (!xrCamera) xrCamera = Camera.main;
-        if (!contentParent && boxPrefab) contentParent = boxPrefab.parent;
         if (boxPrefab) boxPrefab.gameObject.SetActive(false);
+        InitializeLeftEyeDevice();
+
+        if (drawDebug)
+            CreateDebugObjects();
     }
 
     private void Update()
     {
-        if (!detector || !xrCamera || !boxPrefab || !contentParent)
-        {
-            if (debugLogs && Time.unscaledTime - _lastSummary > summaryLogEverySeconds)
-            {
-                _lastSummary = Time.unscaledTime;
-                Debug.Log($"[Noonchi] [Overlay] Missing refs: detector={(detector ? "OK" : "NULL")}, " +
-                          $"xrCamera={(xrCamera ? "OK" : "NULL")}, boxPrefab={(boxPrefab ? "OK" : "NULL")}, contentParent={(contentParent ? "OK" : "NULL")}");
-            }
+        if (!detector || !xrCamera || !arRaycast || !boxPrefab || !contentParent)
             return;
-        }
 
-        // 1) cleanup
-        int removed = 0;
-        for (int i = _drawn.Count - 1; i >= 0; --i)
+        CleanupBoxes();
+
+        // left eye pose per-frame
+        Pose leftPose = default;
+        bool hasLeftPose = false;
+        if (useLeftEyePoseForRays)
         {
-            float age = Time.time - _drawn[i].lastUpdate;
-            if (age > persistSeconds)
-            {
-                if (logPerDetection && debugLogs)
-                    Debug.Log($"[Noonchi] [Overlay] Cleanup: classId={_drawn[i].classId}, age={age:0.00}s -> return to pool");
-                ReturnToPool(_drawn[i]);
-                _drawn.RemoveAt(i);
-                removed++;
-            }
+            if (!_leftEyeDeviceFound || !_leftEyeDevice.isValid)
+                InitializeLeftEyeDevice();
+
+            hasLeftPose = TryGetLeftEyePose(out var p, out var r);
+            if (hasLeftPose) leftPose = new Pose(p, r);
         }
 
-        // 2) detections
+        // ===== Debug: center ray + full viewport rect =====
+        if (drawDebug)
+        {
+            DrawCenterRay(hasLeftPose, leftPose); // cyan
+
+            float depth = GetDepthForDebugPlane(hasLeftPose, leftPose);
+            DrawViewportRect(new Rect(0, 0, 1, 1), depth, hasLeftPose, leftPose, _lrViewportRect); // yellow
+        }
+
         var dets = detector.Detections;
         if (dets == null || dets.Count == 0)
         {
-            if (debugLogs && Time.unscaledTime - _lastSummary > summaryLogEverySeconds)
+            if (drawDebug)
             {
-                _lastSummary = Time.unscaledTime;
-                Debug.Log($"[Noonchi] [Overlay] dets=0 (drawn={_drawn.Count}, pool={_pool.Count}, removed={removed})");
+                _lrDetRect.enabled = false;
+                if (_hitMarker) _hitMarker.gameObject.SetActive(false);
             }
             return;
         }
 
-        if (debugLogs && Time.unscaledTime - _lastSummary > summaryLogEverySeconds)
-        {
-            _lastSummary = Time.unscaledTime;
-            var top = dets[0];
-            Debug.Log($"[Noonchi] [Overlay] dets={dets.Count} drawn={_drawn.Count} pool={_pool.Count} removed={removed} " +
-                      $"top: classId={top.classId} score={top.score:0.00} box={top.box}");
-        }
-
-        // 3) per detection
         for (int i = 0; i < dets.Count; i++)
         {
             var d = dets[i];
 
+            // bbox normalized xyxy (0..1)
             float x1 = d.box.x;
             float y1 = d.box.y;
             float x2 = d.box.z;
             float y2 = d.box.w;
+            if (x2 <= x1 || y2 <= y1) continue;
 
-            if (x2 <= x1 || y2 <= y1)
-            {
-                if (logPerDetection && debugLogs)
-                    Debug.Log($"[Noonchi] [Overlay] det#{i} SKIP invalid xyxy: box={d.box}");
-                continue;
-            }
-
-            var rect = Rect.MinMaxRect(x1, y1, x2, y2);
-
-            Vector2 vc = rect.center;
-            if (yIsTopLeft) vc.y = 1f - vc.y;
-
-            if (logPerDetection && debugLogs)
-                Debug.Log($"[Noonchi] [Overlay] det#{i} 2D " +
-                          $"classId={d.classId} score={d.score:0.00} " +
-                          $"xyxy01=({rect.xMin:0.000},{rect.yMin:0.000},{rect.xMax:0.000},{rect.yMax:0.000}) " +
-                          $"wh01=({rect.width:0.000},{rect.height:0.000}) " +
-                          $"center01=({rect.center.x:0.000},{rect.center.y:0.000}) vc={vc} yIsTopLeft={yIsTopLeft}");
-
-            // 4) raycast center
-            if (!TryRaycastViewport(vc, out var hitPos, out var hitNormal, out var hitDistance))
-            {
-                if (logPerDetection && debugLogs)
-                    Debug.Log($"[Noonchi] [Overlay] det#{i} Raycast FAILED vc={vc}");
-                continue;
-            }
-
-            if (logPerDetection && debugLogs)
-            {
-                var camPos = xrCamera.transform.position;
-                var camFwd = xrCamera.transform.forward;
-                var hitVec = (hitPos - camPos);
-                float frontDot = Vector3.Dot(camFwd, hitVec.normalized);
-
-                Debug.Log($"[Noonchi] [Overlay] det#{i} Raycast OK " +
-                          $"hitPos={hitPos} dist={hitDistance:0.000} normal={hitNormal} " +
-                          $"frontDot={frontDot:0.000} hitVec={hitVec}");
-            }
-
-            // 5) normRect corners
-            Rect normRect = rect;
+            // viewport rect (bottom-left origin)
+            Rect vpRect = Rect.MinMaxRect(x1, y1, x2, y2);
             if (yIsTopLeft)
-                normRect = new Rect(rect.xMin, 1f - rect.yMax, rect.width, rect.height);
+                vpRect = new Rect(vpRect.xMin, 1f - vpRect.yMax, vpRect.width, vpRect.height);
 
-            Vector2 vMin = normRect.min;
-            Vector2 vMax = normRect.max;
+            Vector2 vpCenter = vpRect.center;
 
-            var centerRay = xrCamera.ViewportPointToRay(normRect.center);
-            Vector3 worldCenter = centerRay.GetPoint(hitDistance);
+            // === LeftEye 월드 Ray로 ARRaycast ===
+            Ray worldRay = BuildWorldRayFromViewport(vpCenter, hasLeftPose, leftPose);
 
-            Vector3 viewDir = (worldCenter - xrCamera.transform.position).normalized;
-            var plane = new Plane(viewDir, worldCenter);
+            if (!TryARRaycast(worldRay, out Pose hitPose, out float hitDistance))
+                continue;
 
-            //
+            // debug: selected detection bbox rect + hit marker
+            if (drawDebug && i == debugOnlyThisDetectionIndex)
+            {
+                _lrDetRect.enabled = true;
+                DrawViewportRect(vpRect, hitDistance, hasLeftPose, leftPose, _lrDetRect); // magenta
 
-            // Build plane basis (u=right on plane, v=up on plane)
+                if (_hitMarker)
+                {
+                    _hitMarker.gameObject.SetActive(true);
+                    _hitMarker.position = hitPose.position;
+                }
+            }
+
+            // === 3D UI 박스 배치 (Meta 샘플 방식과 동일한 핵심) ===
+            Pose rayPose = hasLeftPose ? leftPose : new Pose(xrCamera.transform.position, xrCamera.transform.rotation);
+            Vector3 origin = rayPose.position;
+            Quaternion rot = rayPose.rotation;
+
+            // center point on plane at hitDistance
+            Vector3 worldCenter = origin + worldRay.direction.normalized * hitDistance;
+            Vector3 viewDir = (worldCenter - origin).normalized;
+
+            // plane perpendicular to viewDir through worldCenter
+            Plane plane = new Plane(viewDir, worldCenter);
+
+            // build plane basis (u, v)
             Vector3 camUp = xrCamera.transform.up;
             Vector3 u = Vector3.Cross(camUp, viewDir);
-            if (u.sqrMagnitude < 1e-6f)
-                u = Vector3.Cross(xrCamera.transform.right, viewDir);
+            if (u.sqrMagnitude < 1e-6f) u = Vector3.Cross(xrCamera.transform.right, viewDir);
             u.Normalize();
             Vector3 v = Vector3.Cross(viewDir, u).normalized;
 
-            // 4 corners in viewport (0..1, bottom-left origin)
-            Vector2 c0 = new Vector2(normRect.xMin, normRect.yMin);
-            Vector2 c1 = new Vector2(normRect.xMax, normRect.yMin);
-            Vector2 c2 = new Vector2(normRect.xMin, normRect.yMax);
-            Vector2 c3 = new Vector2(normRect.xMax, normRect.yMax);
+            // 4 corners in viewport
+            _cornersVP[0] = new Vector2(vpRect.xMin, vpRect.yMin);
+            _cornersVP[1] = new Vector2(vpRect.xMax, vpRect.yMin);
+            _cornersVP[2] = new Vector2(vpRect.xMax, vpRect.yMax);
+            _cornersVP[3] = new Vector2(vpRect.xMin, vpRect.yMax);
 
-            // Intersect each corner ray with the plane, then project onto (u,v)
             float minU = float.PositiveInfinity, maxU = float.NegativeInfinity;
             float minV = float.PositiveInfinity, maxV = float.NegativeInfinity;
-
-            Vector3 worldMin = Vector3.zero, worldMax = Vector3.zero; // (debug용)
             bool gotAny = false;
 
-            Vector2[] corners = { c0, c1, c2, c3 };
             for (int k = 0; k < 4; k++)
             {
-                var r = xrCamera.ViewportPointToRay(corners[k]);
-                if (!plane.Raycast(r, out float t)) continue;
+                Ray rCorner = BuildWorldRayFromViewport(_cornersVP[k], hasLeftPose, leftPose);
+                if (!plane.Raycast(rCorner, out float t)) continue;
 
-                Vector3 p = r.GetPoint(t);
-                Vector3 dis = p - worldCenter;
+                Vector3 pCorner = rCorner.GetPoint(t);
+                Vector3 dCorner = pCorner - worldCenter;
 
-                float pu = Vector3.Dot(dis, u);
-                float pv = Vector3.Dot(dis, v);
+                float pu = Vector3.Dot(dCorner, u);
+                float pv = Vector3.Dot(dCorner, v);
 
-                if (!gotAny) { worldMin = p; worldMax = p; gotAny = true; }
-                else
-                {
-                    // 그냥 로그용으로 대충 min/max 업데이트
-                    worldMin = new Vector3(Mathf.Min(worldMin.x, p.x), Mathf.Min(worldMin.y, p.y), Mathf.Min(worldMin.z, p.z));
-                    worldMax = new Vector3(Mathf.Max(worldMax.x, p.x), Mathf.Max(worldMax.y, p.y), Mathf.Max(worldMax.z, p.z));
-                }
-
-                if (pu < minU) minU = pu;
-                if (pu > maxU) maxU = pu;
-                if (pv < minV) minV = pv;
-                if (pv > maxV) maxV = pv;
+                gotAny = true;
+                minU = Mathf.Min(minU, pu);
+                maxU = Mathf.Max(maxU, pu);
+                minV = Mathf.Min(minV, pv);
+                maxV = Mathf.Max(maxV, pv);
             }
 
-            if (!gotAny)
-            {
-                if (logPerDetection && debugLogs)
-                    Debug.Log($"[Noonchi] [Overlay] det#{i} Plane corner intersections FAILED (no valid corner hits).");
-                continue;
-            }
+            if (!gotAny) continue;
 
             Vector2 size = new Vector2(Mathf.Abs(maxU - minU), Mathf.Abs(maxV - minV));
-
-            /*var minRay = xrCamera.ViewportPointToRay(vMin);
-            var maxRay = xrCamera.ViewportPointToRay(vMax);
-
-            if (!plane.Raycast(minRay, out float tMin))
-            {
-                if (logPerDetection && debugLogs)
-                    Debug.Log($"[Noonchi] [Overlay] det#{i} Plane.Raycast(minRay) FAILED vMin={vMin}");
-                continue;
-            }
-            if (!plane.Raycast(maxRay, out float tMax))
-            {
-                if (logPerDetection && debugLogs)
-                    Debug.Log($"[Noonchi] [Overlay] det#{i} Plane.Raycast(maxRay) FAILED vMax={vMax}");
-                continue;
-            }
-
-            Vector3 worldMin = minRay.GetPoint(tMin);
-            Vector3 worldMax = maxRay.GetPoint(tMax);
-
-            Vector3 localMin = Quaternion.Inverse(xrCamera.transform.rotation) * (worldMin - xrCamera.transform.position);
-            Vector3 localMax = Quaternion.Inverse(xrCamera.transform.rotation) * (worldMax - xrCamera.transform.position);
-
-            Vector2 size = new Vector2(
-                Mathf.Abs(localMax.x - localMin.x),
-                Mathf.Abs(localMax.y - localMin.y)
-            );*/
-
             if (float.IsNaN(size.x) || float.IsNaN(size.y) || size.x <= 0f || size.y <= 0f)
-            {
-                if (logPerDetection && debugLogs)
-                   //Debug.Log($"[Noonchi] [Overlay] det#{i} INVALID size={size} localMin={localMin} localMax={localMax} tMin={tMin} tMax={tMax}");
                 continue;
-            }
 
-            if (logPerDetection && debugLogs)
-            {
-                float distCenter = Vector3.Distance(xrCamera.transform.position, worldCenter);
-                Debug.Log($"[Noonchi] [Overlay] det#{i} 3D " +
-                          $"worldCenter={worldCenter} distCenter={distCenter:0.000} " +
-                          $"worldMin={worldMin} worldMax={worldMax} " +
-                          $"sizeXY(world)={size} " +
-                          $"viewDir={viewDir} vMin={vMin} vMax={vMax}");
-            }
-
-            // 6) create/reuse box
             var box = GetOrCreate(d.classId);
             box.lastUpdate = Time.time;
 
-            // 7) apply transform + size
             box.rt.SetPositionAndRotation(worldCenter, Quaternion.LookRotation(viewDir));
             box.rt.sizeDelta = size;
 
-            // 8) validate visual components on instantiated box (Image visible?)
-            if (logPerDetection && debugLogs)
-            {
-                var img = box.rt.GetComponent<Image>();
-                var tmp = box.rt.GetComponentInChildren<TMP_Text>(true);
-
-                Debug.Log($"[Noonchi] [Overlay] det#{i} PLACE boxGO={box.rt.name} active={box.rt.gameObject.activeInHierarchy} " +
-                          $"pos={box.rt.position} sizeDelta={box.rt.sizeDelta} hasImage={(img ? "YES" : "NO")} hasTMP={(tmp ? "YES" : "NO")}");
-
-                if (img)
-                {
-                    Debug.Log($"[Noonchi] [Overlay] det#{i} Image state: enabled={img.enabled} color={img.color} sprite={(img.sprite ? img.sprite.name : "NULL")}");
-                    if (img.color.a <= 0.01f)
-                        Debug.Log($"[Noonchi] [Overlay] det#{i} Image alpha is ~0 => invisible.");
-                }
-                else
-                {
-                    Debug.Log($"[Noonchi] [Overlay] det#{i} WARNING: No Image component on box root. If Image is on a child, move it to root or fetch child Image.");
-                }
-            }
-
-            // 9) set text
             var uiText = box.rt.GetComponentInChildren<TMP_Text>(true);
-            if (uiText)
-                uiText.text = $"{detector.ClassName(d.classId)} {d.score:0.00}";
-            else if (logPerDetection && debugLogs)
-                Debug.Log($"[Noonchi] [Overlay] det#{i} WARNING: TMP_Text not found in box prefab instance.");
+            if (uiText) uiText.text = $"{detector.ClassName(d.classId)} {d.score:0.00}";
         }
     }
 
-    private bool TryRaycastViewport(Vector2 viewport01, out Vector3 pos, out Vector3 normal, out float distance)
+    // -----------------------
+    // AR Raycast
+    // -----------------------
+    private bool TryARRaycast(Ray ray, out Pose hitPose, out float hitDistance)
     {
-        if (!arRaycast)
+        _hits.Clear();
+        bool ok = arRaycast.Raycast(ray, _hits, arTrackables);
+        if (!ok || _hits.Count == 0)
         {
-            if (debugLogs && logPerDetection)
-                Debug.Log("[Noonchi] [Overlay] Raycast: arRaycast is NULL");
-            pos = default; normal = default; distance = 0f;
+            hitPose = default;
+            hitDistance = 0f;
             return false;
         }
 
-        var screen = (Vector2)xrCamera.ViewportToScreenPoint(new Vector3(viewport01.x, viewport01.y, 0));
-        var hits = new List<ARRaycastHit>(8);
-
-        bool ok = arRaycast.Raycast(screen, hits, arTrackables);
-
-        if (debugLogs && logPerDetection)
-            Debug.Log($"[Noonchi] [Overlay] Raycast: viewport={viewport01} screen={screen} ok={ok} hits={hits.Count} trackables={arTrackables}");
-
-        if (ok && hits.Count > 0)
+        int best = 0;
+        float bestDist = float.PositiveInfinity;
+        for (int i = 0; i < _hits.Count; i++)
         {
-            // Pick closest hit (min hit.distance)
-            int best = 0;
-            float bestDist = float.PositiveInfinity;
-
-            for (int i = 0; i < hits.Count; i++)
-            {
-                // ARRaycastHit.distance는 screen-ray 상 거리
-                float d = hits[i].distance;
-                if (d < bestDist)
-                {
-                    bestDist = d;
-                    best = i;
-                }
-            }
-
-            var h = hits[best];
-            pos = h.pose.position;
-            normal = h.pose.up;
-            distance = bestDist; // <= Vector3.Distance보다 일관적
-
-            if (debugLogs && logPerDetection)
-                Debug.Log($"[Noonchi] [Overlay] Raycast HIT(best): idx={best}/{hits.Count} dist={distance:0.000} pos={pos} normal={normal}");
-
-            return true;
+            float d = _hits[i].distance;
+            if (d < bestDist) { bestDist = d; best = i; }
         }
 
-        pos = default;
-        normal = default;
-        distance = 0f;
-        return false;
+        hitPose = _hits[best].pose;
+        hitDistance = bestDist;
+        return true;
+    }
+
+    // -----------------------
+    // LeftEye pose (InputDevice)
+    // -----------------------
+    private void InitializeLeftEyeDevice()
+    {
+        var devices = new List<InputDevice>(4);
+        InputDevices.GetDevicesAtXRNode(XRNode.LeftEye, devices);
+
+        if (devices.Count > 0)
+        {
+            _leftEyeDevice = devices[0];
+            _leftEyeDeviceFound = _leftEyeDevice.isValid;
+        }
+        else
+        {
+            _leftEyeDeviceFound = false;
+        }
+    }
+
+    private bool TryGetLeftEyePose(out Vector3 position, out Quaternion rotation)
+    {
+        position = Vector3.zero;
+        rotation = Quaternion.identity;
+
+        if (!_leftEyeDeviceFound || !_leftEyeDevice.isValid)
+            return false;
+
+        bool gotPos = _leftEyeDevice.TryGetFeatureValue(CommonUsages.leftEyePosition, out position);
+        bool gotRot = _leftEyeDevice.TryGetFeatureValue(CommonUsages.leftEyeRotation, out rotation);
+        return gotPos && gotRot;
+    }
+
+    // -----------------------
+    // Build LeftEye world ray from viewport
+    // -----------------------
+    private Ray BuildWorldRayFromViewport(Vector2 viewport01, bool hasLeftPose, Pose leftPose)
+    {
+        Pose rayPose = hasLeftPose ? leftPose : new Pose(xrCamera.transform.position, xrCamera.transform.rotation);
+
+        // 1) get direction from xrCamera projection in world
+        Vector3 camDirWorld = xrCamera.ViewportPointToRay(new Vector3(viewport01.x, viewport01.y, 0f)).direction.normalized;
+
+        // 2) convert that direction into xrCamera local
+        Vector3 camDirLocal = Quaternion.Inverse(xrCamera.transform.rotation) * camDirWorld;
+
+        // 3) rotate into left-eye (or fallback camera) world
+        Vector3 dirWorld = (rayPose.rotation * camDirLocal).normalized;
+
+        return new Ray(rayPose.position, dirWorld);
+    }
+
+    // -----------------------
+    // Debug objects (LineRenderer)
+    // -----------------------
+    private void CreateDebugObjects()
+    {
+        _lrCenterRay = CreateLineRenderer("DBG_CenterRay", Color.cyan, 2);
+        _lrViewportRect = CreateLineRenderer("DBG_ViewportRect01", Color.yellow, 5);
+        _lrDetRect = CreateLineRenderer("DBG_DetRect", Color.magenta, 5);
+
+        // hit marker (small sphere)
+        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        go.name = "DBG_HitMarker";
+        go.transform.localScale = Vector3.one * 0.05f;
+        Destroy(go.GetComponent<Collider>());
+        _hitMarker = go.transform;
+        _hitMarker.gameObject.SetActive(false);
+    }
+
+    private LineRenderer CreateLineRenderer(string name, Color color, int positions)
+    {
+        GameObject go = new GameObject(name);
+        var lr = go.AddComponent<LineRenderer>();
+
+        lr.useWorldSpace = true;
+        lr.positionCount = positions;
+        lr.startWidth = debugLineWidthM;
+        lr.endWidth = debugLineWidthM;
+        lr.numCapVertices = 6;
+
+        var mat = new Material(Shader.Find("Sprites/Default"));
+        lr.material = mat;
+        lr.startColor = color;
+        lr.endColor = color;
+
+        lr.enabled = true;
+        return lr;
+    }
+
+    private void DrawCenterRay(bool hasLeftPose, Pose leftPose)
+    {
+        if (!_lrCenterRay) return;
+
+        Ray r = BuildWorldRayFromViewport(new Vector2(0.5f, 0.5f), hasLeftPose, leftPose);
+
+        _lrCenterRay.enabled = true;
+        _lrCenterRay.positionCount = 2;
+        _lrCenterRay.SetPosition(0, r.origin);
+        _lrCenterRay.SetPosition(1, r.origin + r.direction * debugRayLengthM);
+    }
+
+    private float GetDepthForDebugPlane(bool hasLeftPose, Pose leftPose)
+    {
+        Ray center = BuildWorldRayFromViewport(new Vector2(0.5f, 0.5f), hasLeftPose, leftPose);
+        if (TryARRaycast(center, out _, out float d))
+            return Mathf.Max(0.05f, d);
+
+        return Mathf.Max(0.05f, debugFallbackDepthM);
+    }
+
+    // viewport rect (bottom-left) -> draw on plane at given depth along rect center ray
+    private void DrawViewportRect(Rect viewportRect01, float depth, bool hasLeftPose, Pose leftPose, LineRenderer lr)
+    {
+        if (!lr) return;
+
+        Vector2 centerVP = viewportRect01.center;
+        Ray centerRay = BuildWorldRayFromViewport(centerVP, hasLeftPose, leftPose);
+
+        Vector3 centerPoint = centerRay.origin + centerRay.direction.normalized * depth;
+        Vector3 viewDir = (centerPoint - centerRay.origin).normalized;
+        Plane plane = new Plane(viewDir, centerPoint);
+
+        Vector2 c0 = new Vector2(viewportRect01.xMin, viewportRect01.yMin);
+        Vector2 c1 = new Vector2(viewportRect01.xMax, viewportRect01.yMin);
+        Vector2 c2 = new Vector2(viewportRect01.xMax, viewportRect01.yMax);
+        Vector2 c3 = new Vector2(viewportRect01.xMin, viewportRect01.yMax);
+
+        if (!CornerOnPlane(c0, plane, hasLeftPose, leftPose, out var p0)) { lr.enabled = false; return; }
+        if (!CornerOnPlane(c1, plane, hasLeftPose, leftPose, out var p1)) { lr.enabled = false; return; }
+        if (!CornerOnPlane(c2, plane, hasLeftPose, leftPose, out var p2)) { lr.enabled = false; return; }
+        if (!CornerOnPlane(c3, plane, hasLeftPose, leftPose, out var p3)) { lr.enabled = false; return; }
+
+        lr.enabled = true;
+        lr.positionCount = 5;
+        lr.SetPosition(0, p0);
+        lr.SetPosition(1, p1);
+        lr.SetPosition(2, p2);
+        lr.SetPosition(3, p3);
+        lr.SetPosition(4, p0);
+    }
+
+    private bool CornerOnPlane(Vector2 vp, Plane plane, bool hasLeftPose, Pose leftPose, out Vector3 p)
+    {
+        Ray r = BuildWorldRayFromViewport(vp, hasLeftPose, leftPose);
+        if (!plane.Raycast(r, out float t))
+        {
+            p = default;
+            return false;
+        }
+        p = r.GetPoint(t);
+        return true;
+    }
+
+    // -----------------------
+    // Pooling (3D UI boxes)
+    // -----------------------
+    private void CleanupBoxes()
+    {
+        for (int i = _drawn.Count - 1; i >= 0; --i)
+        {
+            if (Time.time - _drawn[i].lastUpdate > persistSeconds)
+            {
+                ReturnToPool(_drawn[i]);
+                _drawn.RemoveAt(i);
+            }
+        }
     }
 
     private BoxData GetOrCreate(int classId)
     {
+        // classId 별 1개 유지(원하면 det index별로 바꿔도 됨)
         for (int i = _drawn.Count - 1; i >= 0; --i)
-        {
             if (_drawn[i].classId == classId)
-            {
-                if (debugLogs && logPerDetection)
-                    Debug.Log($"[Noonchi] [Overlay] Reuse existing box for classId={classId} go={_drawn[i].rt.name}");
                 return _drawn[i];
-            }
-        }
 
         BoxData data;
         if (_pool.Count > 0)
@@ -372,18 +417,15 @@ public class Detection3DOverlay : MonoBehaviour
             data = _pool[_pool.Count - 1];
             _pool.RemoveAt(_pool.Count - 1);
             data.rt.gameObject.SetActive(true);
-
-            if (debugLogs && logPerDetection)
-                Debug.Log($"[Noonchi] [Overlay] Pool pop classId={classId} go={data.rt.name} poolNow={_pool.Count}");
         }
         else
         {
             var rt = Instantiate(boxPrefab, contentParent);
             rt.gameObject.SetActive(true);
+            // center anchoring
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
             data = new BoxData { rt = rt };
-
-            if (debugLogs)
-                Debug.Log($"[Noonchi] [Overlay] Instantiate new box for classId={classId} go={rt.name} parent={contentParent.name}");
         }
 
         data.classId = classId;
@@ -394,9 +436,6 @@ public class Detection3DOverlay : MonoBehaviour
 
     private void ReturnToPool(BoxData b)
     {
-        if (debugLogs && logPerDetection)
-            Debug.Log($"[Noonchi] [Overlay] ReturnToPool classId={b.classId} go={b.rt.name}");
-
         b.rt.gameObject.SetActive(false);
         _pool.Add(b);
     }
