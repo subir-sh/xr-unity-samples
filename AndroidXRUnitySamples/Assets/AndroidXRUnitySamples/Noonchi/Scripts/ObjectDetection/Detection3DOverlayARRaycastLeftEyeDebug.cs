@@ -4,7 +4,7 @@ using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 using TMPro;
 
-public class Detection3DOverlay_ARFoundation_LeftEye : MonoBehaviour
+public class Detection3DOverlay_ARFoundation_LeftEyeDebug : MonoBehaviour
 {
     [Header("Sources")]
     [SerializeField] private SentisYoloDetector detector;

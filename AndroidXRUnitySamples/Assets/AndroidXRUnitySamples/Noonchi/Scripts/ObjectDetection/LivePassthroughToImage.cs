@@ -1,9 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System.Threading.Tasks;
-using AndroidXRUnitySamples.Gemini; // CameraCaptureBridge, CameraFrameData 사용 
-
-// 샘플의 CameraCaptureSample.cs 참고함
+using AndroidXRUnitySamples.Noonchi; 
+// CameraCaptureBridge, CameraFrameData 사용 --> 샘플의 /Gemini, CameraCaptureSample.cs 참고
 
 #if UNITY_ANDROID
 using UnityEngine.Android;
