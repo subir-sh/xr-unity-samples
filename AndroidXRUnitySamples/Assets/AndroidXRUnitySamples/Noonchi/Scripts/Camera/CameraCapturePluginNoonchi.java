@@ -67,7 +67,7 @@ import android.os.Build;
 public class CameraCapturePluginNoonchi implements IUnityPlugin {
 
   public static boolean SAVE_TO_FILE_FOR_DEBUG = false;
-  public static boolean ENABLE_VERBOSE_LOGGING = true;
+  public static boolean ENABLE_VERBOSE_LOGGING = false;
   private static final String TAG = "CameraCapturePluginNoonchi";
   private static final SparseIntArray ORIENTATIONS = new SparseIntArray();
 

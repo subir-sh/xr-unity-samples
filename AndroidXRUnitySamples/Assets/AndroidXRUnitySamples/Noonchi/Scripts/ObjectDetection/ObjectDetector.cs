@@ -3,17 +3,17 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.InferenceEngine;
+using System.Runtime.InteropServices.WindowsRuntime;
 
 public class ObjectDetector : MonoBehaviour
 {
     [Header("Model")]
     [SerializeField] private ModelAsset sentisModel;
     [SerializeField] private BackendType backend = BackendType.GPUCompute; // CPU or GPU
-    [Tooltip("If true, runs one dummy inference at startup to reduce first-hit hitch.")]
-    [SerializeField] private bool prewarmOnStart = true;
 
     [Tooltip("Minimum time between inferences in seconds (fine control).")]
     [SerializeField] private float minIntervalSeconds = 0.15f;
+    private float _lastRunTime = -999f;
 
     [Tooltip("If already running inference, keep only the newest request.")]
     [SerializeField] private bool keepLatestRequestWhileBusy = true;
@@ -21,7 +21,6 @@ public class ObjectDetector : MonoBehaviour
     [Header("Thresholds")]
     [SerializeField, Range(0f, 1f)] private float scoreThreshold = 0.25f;
     [SerializeField, Range(0f, 1f)] private float iouThreshold = 0.55f;
-    [SerializeField] private int maxDetections = 30;
 
     [Header("Labels")]
     [SerializeField] private TextAsset labelsTxt;
@@ -41,11 +40,11 @@ public class ObjectDetector : MonoBehaviour
     private TextureTransform _texTransform;
     private int _inW, _inH;
 
-    private float _lastRunTime = -999f;
-
     private bool _isRunning = false;
+    private bool _prewarming = true;
     private Texture _pendingTexture = null;
 
+    private Pose cachedCameraPose;
     public readonly List<Detection> Detections = new();
 
     [Serializable]
@@ -56,6 +55,8 @@ public class ObjectDetector : MonoBehaviour
         /// <summary>Normalized XYXY (0~1): x1,y1,x2,y2</summary>
         public Vector4 box;
     }
+
+    public Pose getCachedCameraPose() { return cachedCameraPose; }
 
     private void Awake()
     {
@@ -82,45 +83,38 @@ public class ObjectDetector : MonoBehaviour
 
         _worker = new Worker(_model, backend);
 
-        Debug.Log($"[Sentis] Model loaded. Input={_model.inputs[0].name} size={_inW}x{_inH} outputs={_model.outputs.Count}");
-
-        if (prewarmOnStart)
-            StartCoroutine(PrewarmCoroutine());
+        StartCoroutine(PrewarmCoroutine());
     }
 
     private void OnDestroy()
     {
         try { _worker?.Dispose(); } catch { }
         try { _input?.Dispose(); } catch { }
-    }
+    } 
 
-    /// <summary>
-    /// Call this every frame with the latest texture. The detector will throttle internally.
-    /// </summary>
-    public void SubmitFrame(Texture sourceTexture)
+    // CameraCapture에서 이미지 받아오기 
+    public void SubmitFrame(Texture sourceTexture, Pose cameraPose)
     {
+        if (_prewarming) return;
         if (sourceTexture == null) return;
 
         // Always keep latest
-        if (!_isRunning || keepLatestRequestWhileBusy)
+        if (!_isRunning || keepLatestRequestWhileBusy) 
+        {
             _pendingTexture = sourceTexture;
+        }
 
         // If not running, try to start based on throttle rules
         if (!_isRunning)
+        {
+            cachedCameraPose = cameraPose;
             TryStartInferenceIfDue();
-    }
-
-    private void Update()
-    {
-        // In case SubmitFrame isn't called continuously, we still try to run when pending exists.
-        if (!_isRunning && _pendingTexture != null)
-            TryStartInferenceIfDue();
+        }
     }
 
     private void TryStartInferenceIfDue()
     {
-        if (Time.unscaledTime - _lastRunTime < minIntervalSeconds)
-            return;
+        if (Time.unscaledTime - _lastRunTime < minIntervalSeconds) return;
 
         // Kick off
         var tex = _pendingTexture;
@@ -132,18 +126,18 @@ public class ObjectDetector : MonoBehaviour
         StartCoroutine(RunInferenceCoroutine(tex));
     }
 
+    // 모델 prewarm: 더미 텍스처를 만들어서, kernel/model path 로드하게 추론 한 번 돌리고 삭제
     private IEnumerator PrewarmCoroutine()
     {
-        // dummy tiny texture to load kernels / model path
+        _prewarming = true;
         Texture2D tmp = new Texture2D(2, 2, TextureFormat.RGBA32, false);
         tmp.Apply(false, true);
-
-        // one inference
         yield return RunInferenceCoroutine(tmp, isPrewarm: true);
-
         Destroy(tmp);
+        _prewarming = false;
     }
 
+    // 실제로 "추론"하는 함수
     private IEnumerator RunInferenceCoroutine(Texture sourceTexture, bool isPrewarm = false)
     {
         // 1) texture -> tensor
@@ -153,11 +147,11 @@ public class ObjectDetector : MonoBehaviour
         _worker.Schedule(_input);
 
         // 3) async readback (3-output path)
-        // If your model outputs differ, change names or add a fallback mapping.
         var boxesT = _worker.PeekOutput(boxesOutputName) as Tensor<float>;
         var classT = _worker.PeekOutput(classIdsOutputName) as Tensor<int>;
         var scoresT = _worker.PeekOutput(scoresOutputName) as Tensor<float>;
 
+        // 모델 아웃풋 이름이 다를 수 있음. 일단 메타 퀘스트 코드에서 구워진 이름 그대로 사용 중
         if (boxesT == null || classT == null || scoresT == null)
         {
             if (!isPrewarm)
@@ -183,16 +177,12 @@ public class ObjectDetector : MonoBehaviour
         while (!scoresAwaiter.IsCompleted) yield return null;
         using var scores = scoresAwaiter.GetResult();
 
-        if (!isPrewarm)
-        {
-            DecodeAndNms(boxes, classIds, scores);
-        }
+        if (!isPrewarm) DecodeAndNms(boxes, classIds, scores);
 
         _isRunning = false;
 
-        // If a newer frame arrived while we were busy, run again if due
-        if (_pendingTexture != null)
-            TryStartInferenceIfDue();
+        // 만약 추론 중 새로운 프레임이 들어왔으면, 그 프레임에 대한 추론 invoke
+        if (_pendingTexture != null) TryStartInferenceIfDue();
     }
 
     private void DecodeAndNms(Tensor<float> boxes, Tensor<int> classIds, Tensor<float> scores)
@@ -228,8 +218,6 @@ public class ObjectDetector : MonoBehaviour
                 score = s,
                 box = Clamp01(b)
             });
-
-            if (raw.Count >= maxDetections * 6) break;
         }
 
         ApplyNms(raw);
@@ -254,7 +242,6 @@ public class ObjectDetector : MonoBehaviour
 
             var di = raw[i];
             Detections.Add(di);
-            if (Detections.Count >= maxDetections) break;
 
             for (int j = i + 1; j < raw.Count; j++)
             {
@@ -317,19 +304,25 @@ public class ObjectDetector : MonoBehaviour
 
     private float IoU(Vector4 a, Vector4 b)
     {
+        // Vector 4 --> (topLeftX, topLeftY, bottomRightX, bottomRightY)
+        // 교차 좌표 계산
         float x1 = Mathf.Max(a.x, b.x);
         float y1 = Mathf.Max(a.y, b.y);
         float x2 = Mathf.Min(a.z, b.z);
         float y2 = Mathf.Min(a.w, b.w);
 
+        // 교차 영역 계산
         float iw = Mathf.Max(0, x2 - x1);
         float ih = Mathf.Max(0, y2 - y1);
         float inter = iw * ih;
 
+        // 각 박스의 영역
         float areaA = Mathf.Max(0, a.z - a.x) * Mathf.Max(0, a.w - a.y);
         float areaB = Mathf.Max(0, b.z - b.x) * Mathf.Max(0, b.w - b.y);
+        // Union 계산
         float union = areaA + areaB - inter;
 
+        // Union이 0이면 0, 아니면 Intersection over Union 반환
         return union <= 1e-6f ? 0f : inter / union;
     }
 

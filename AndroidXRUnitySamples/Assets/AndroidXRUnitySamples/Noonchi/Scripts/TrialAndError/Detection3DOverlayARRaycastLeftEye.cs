@@ -43,7 +43,7 @@ public class Detection3DOverlay_ARFoundation_LeftEye : MonoBehaviour
 
     [Header("RGB Camera Intrinsics (for 640x640)")]
     [SerializeField] private float fx = 386.67f;
-    [SerializeField] private float fy = 386.67f;
+    [SerializeField] private float fy = 386.67f; 
     [SerializeField] private float cx = 320f;
     [SerializeField] private float cy = 320f;
     [SerializeField] private int imageW = 640;

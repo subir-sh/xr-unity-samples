@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Threading.Tasks;
 using AndroidXRUnitySamples.Noonchi;
+using UnityEngine.XR;
 // CameraCaptureBridge, CameraFrameData 사용 --> 샘플의 /Gemini, CameraCaptureSample.cs 참고
 
 #if UNITY_ANDROID
@@ -17,7 +18,8 @@ public class CameraCapture : MonoBehaviour
     private CameraCaptureBridge _bridge;
     private Texture2D _tex;
 
-    [SerializeField] private SentisYoloDetector detector;
+    [SerializeField] private ObjectDetector detector;
+    [SerializeField] private Transform xrRigRoot;
     [SerializeField] private int runDetectionEveryNFrames = 3;
     private int _frameCounter;
 
@@ -67,9 +69,10 @@ public class CameraCapture : MonoBehaviour
 
         // JPEG --> LoadImage
         _tex.LoadImage(frame.ImageData);
+        Pose cameraPose = GetLeftEyeWorldPose(xrRigRoot);
 
         if (detector != null && (_frameCounter++ % runDetectionEveryNFrames == 0))
-            detector.SubmitFrame(_tex);
+            detector.SubmitFrame(_tex, cameraPose);
     }
 
     private void OnError(CameraCaptureError err)
@@ -95,5 +98,15 @@ public class CameraCapture : MonoBehaviour
             Destroy(_tex);
             _tex = null;
         }
+    }
+
+    public static Pose GetLeftEyeWorldPose(Transform xrRigRoot)
+    {
+        var dev = InputDevices.GetDeviceAtXRNode(XRNode.LeftEye);
+
+        dev.TryGetFeatureValue(CommonUsages.devicePosition, out var lp);
+        dev.TryGetFeatureValue(CommonUsages.deviceRotation, out var lr);
+
+        return new Pose(xrRigRoot.TransformPoint(lp), xrRigRoot.rotation * lr);
     }
 }

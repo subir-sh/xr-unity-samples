@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &8898851605192803593
+--- !u!1 &1467860809100377735
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,24 +8,25 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 3657245216575544914}
-  - component: {fileID: 2249212199108053584}
-  - component: {fileID: 7420002039627813106}
-  - component: {fileID: 8653899493183607193}
-  m_Layer: 0
-  m_Name: SceneMesh
+  - component: {fileID: 4510926655777190808}
+  - component: {fileID: 6831965537658132526}
+  - component: {fileID: 7140821524894566623}
+  - component: {fileID: -3086569732726317141}
+  - component: {fileID: -8701987392343836424}
+  m_Layer: 9
+  m_Name: RuntimeMesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &3657245216575544914
+--- !u!4 &4510926655777190808
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8898851605192803593}
+  m_GameObject: {fileID: 1467860809100377735}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -34,23 +35,45 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &2249212199108053584
+--- !u!33 &6831965537658132526
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8898851605192803593}
+  m_GameObject: {fileID: 1467860809100377735}
   m_Mesh: {fileID: 0}
---- !u!23 &7420002039627813106
+--- !u!64 &7140821524894566623
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1467860809100377735}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 0}
+--- !u!23 &-3086569732726317141
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8898851605192803593}
-  m_Enabled: 0
-  m_CastShadows: 1
+  m_GameObject: {fileID: 1467860809100377735}
+  m_Enabled: 1
+  m_CastShadows: 0
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
   m_StaticShadowCaster: 0
@@ -62,12 +85,10 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
-  m_ForceMeshLod: -1
-  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 95f952e1dd068ea46a8ce32fe15b01c4, type: 2}
+  - {fileID: 2100000, guid: 672731c053ac14b91b52ba80d3595581, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -85,30 +106,25 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
-  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!64 &8653899493183607193
-MeshCollider:
+--- !u!114 &-8701987392343836424
+MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8898851605192803593}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
+  m_GameObject: {fileID: 1467860809100377735}
   m_Enabled: 1
-  serializedVersion: 5
-  m_Convex: 0
-  m_CookingOptions: 30
-  m_Mesh: {fileID: 0}
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 64903420a1ef743d09d1dbdb2de00780, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  CollisionSound: {fileID: 8300000, guid: 11f6ef3ddda47f147853282e8fa334c8, type: 3}
+  MinPitch: 0.9
+  MaxPitch: 1.1
+  ImpactEffectPrefab: {fileID: 9096661410433508374, guid: 28765936287c847f78fe65f4879e5098, type: 3}
+  _decalPrefab: {fileID: 1028833903965834832, guid: 7b1203175d78a449baf9ce6ded3fc38c, type: 3}
+  _decalScale: 0.3
