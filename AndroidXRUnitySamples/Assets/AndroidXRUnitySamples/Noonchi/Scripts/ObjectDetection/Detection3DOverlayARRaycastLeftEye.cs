@@ -36,23 +36,10 @@ public class Detection3DOverlay_ARFoundation_LeftEye : MonoBehaviour
 
     [Header("Placement")]
     [SerializeField, Min(1)] private int maxBoxes = 30;
-    [SerializeField, Min(0f)] private float persistSeconds = 0.25f;
+    [SerializeField, Min(0f)] private float persistSeconds = 0.2f;
     [SerializeField] private bool invertForward = false;
     [SerializeField] private bool clampMinSize = true;
     [SerializeField, Min(0.001f)] private float minSizeMeters = 0.02f;
-
-    [Header("Debug Logs")]
-    [SerializeField] private bool debugLogs = true;
-    [SerializeField, Min(0.1f)] private float logEverySeconds = 1.0f;
-    [SerializeField] private bool debugDrawRays = false;
-
-    [Header("Debug 3D Markers (instantiate once @ first hit)")]
-    [SerializeField] private bool debugInstantiateOnce = true;
-    [SerializeField, Min(0.001f)] private float debugSphereScale = 0.02f;
-    [SerializeField, Min(0.001f)] private float debugPoseCubeScale = 0.035f;
-    [SerializeField, Min(0.001f)] private float debugForwardLen = 0.18f;
-    [SerializeField, Min(0.0001f)] private float debugLineWidth = 0.004f;
-    [SerializeField, Min(0.01f)] private float debugRayLength = 3.0f;
 
     [Header("RGB Camera Intrinsics (for 640x640)")]
     [SerializeField] private float fx = 386.67f;
@@ -65,7 +52,6 @@ public class Detection3DOverlay_ARFoundation_LeftEye : MonoBehaviour
     private readonly List<ARRaycastHit> _hits = new();
     private readonly List<BoxItem> _active = new();
     private readonly Stack<BoxItem> _pool = new();
-    private float _lastLogT = -999f;
 
     private class BoxItem
     {
@@ -76,25 +62,8 @@ public class Detection3DOverlay_ARFoundation_LeftEye : MonoBehaviour
         public float lastSeen;
     }
 
-    // --- Debug marker state (created once) ---
-    private bool _debugCaptured = false;
-    private Transform _debugRoot;
-
-    // (1) ray origin sphere
-    private GameObject _dbgRayOriginSphere;
-    // (2) ray line
-    private LineRenderer _dbgRayLine;
-    // (3) ray hit sphere
-    private GameObject _dbgRayHitSphere;
-    // (4) LeftEye pose marker (cube + forward line)
-    private Transform _dbgLeftEyeMarker;
-    // (5) Main cam pose marker (cube + forward line)
-    private Transform _dbgMainCamMarker;
-
     private void LateUpdate()
     {
-        if (!ValidateRefs()) return;
-
         var dets = detector.Detections;
         int count = Mathf.Min(dets.Count, maxBoxes);
 
@@ -110,6 +79,8 @@ public class Detection3DOverlay_ARFoundation_LeftEye : MonoBehaviour
         for (int i = 0; i < count; i++)
         {
             var d = dets[i];
+            //if (detector.ClassName(d.classId) == "tvmonitor") continue; // FOR DEBUGGING
+
             Vector4 b = d.box; // normalized xyxy (0..1)
 
             Vector2 uvCenter = new Vector2((b.x + b.z) * 0.5f, (b.y + b.w) * 0.5f);
@@ -127,7 +98,6 @@ public class Detection3DOverlay_ARFoundation_LeftEye : MonoBehaviour
 
             Vector2 pxCenter = new Vector2(uvCenter.x * imageW, uvCenter.y * imageH);
             Ray centerRay = PixelToWorldRay_FromIntrinsics(pxCenter, eyePose);
-            if (debugDrawRays) Debug.DrawRay(centerRay.origin, centerRay.direction * 3f, Color.cyan);
 
             if (!TryARRaycast(centerRay, out var hit))
             {
@@ -140,13 +110,6 @@ public class Detection3DOverlay_ARFoundation_LeftEye : MonoBehaviour
 
             // hit point is the best "ground truth" for placement
             Vector3 worldCenter = hit.pose.position;
-
-            // Debug markers: capture ONLY once, at the first successful hit
-            if (debugInstantiateOnce && !_debugCaptured)
-            {
-                CaptureDebugOnce(centerRay, hit, eyePose, xrCamera.transform);
-                _debugCaptured = true;
-            }
 
             Vector3 normalEyeToCenter = (worldCenter - eyePos).normalized;
             Plane plane = new Plane(normalEyeToCenter, worldCenter);
@@ -227,18 +190,6 @@ public class Detection3DOverlay_ARFoundation_LeftEye : MonoBehaviour
                 }
             }
 
-            if (debugLogs && Time.unscaledTime - _lastLogT >= logEverySeconds)
-            {
-                float dot = Vector3.Dot((eyePos - worldCenter).normalized, item.root.forward);
-                float dist = Vector3.Distance(eyePos, worldCenter);
-                float scl = (item.labelRoot != null) ? item.labelRoot.localScale.x : 0f;
-
-                Debug.Log(
-                    $"[3DOverlay][DBG] center={worldCenter} size=({width:0.000},{height:0.000}) " +
-                    $"dist={dist:0.00} labelScale={scl:0.00} dot={dot:0.00} hitType={hit.hitType} hitDist={hit.distance:0.00}"
-                );
-            }
-
             placed++;
         }
 
@@ -252,35 +203,6 @@ public class Detection3DOverlay_ARFoundation_LeftEye : MonoBehaviour
                 _active.RemoveAt(i);
             }
         }
-
-        if (debugLogs && Time.unscaledTime - _lastLogT >= logEverySeconds)
-        {
-            _lastLogT = Time.unscaledTime;
-            Debug.Log($"[3DOverlay] dets={count} hits={hits} miss={miss} placed={placed} stereo={xrCamera.stereoEnabled} flipY={flipY} stabilizeLabelSize={stabilizeLabelSize}");
-        }
-    }
-
-    private bool ValidateRefs()
-    {
-        if (detector == null || xrCamera == null || arRaycast == null)
-        {
-            ThrottledWarn($"[3DOverlay] Missing refs: detector={detector != null}, cam={xrCamera != null}, arRaycast={arRaycast != null}");
-            return false;
-        }
-        if (!xrCamera.stereoEnabled)
-        {
-            ThrottledWarn("[3DOverlay] xrCamera.stereoEnabled == false.");
-            return false;
-        }
-        return true;
-    }
-
-    private void ThrottledWarn(string msg)
-    {
-        if (!debugLogs) return;
-        if (Time.unscaledTime - _lastLogT < logEverySeconds) return;
-        _lastLogT = Time.unscaledTime;
-        Debug.LogWarning(msg);
     }
 
     private bool TryARRaycast(Ray ray, out ARRaycastHit hit)
@@ -374,183 +296,6 @@ public class Detection3DOverlay_ARFoundation_LeftEye : MonoBehaviour
         lr.SetPosition(3, new Vector3(-hx, hy, 0f));
     }
 
-    // ----- Debug markers (instantiate once) -----
-
-    private void CaptureDebugOnce(Ray ray, ARRaycastHit hit, Pose leftEyePose, Transform mainCamTf)
-    {
-        if (_debugRoot == null)
-        {
-            var go = new GameObject("DebugMarkers_Once");
-            go.transform.SetParent(transform, false);
-            _debugRoot = go.transform;
-        }
-
-        // (1) Ray origin sphere - Magenta
-        _dbgRayOriginSphere = CreateSphere("RayOrigin_Sphere", ray.origin, debugSphereScale, _debugRoot, Color.magenta);
-
-        // (2) Ray line - Cyan
-        _dbgRayLine = CreateWorldLine("Ray_Line", _debugRoot, debugLineWidth, Color.cyan);
-        Vector3 rayEnd = ray.origin + ray.direction.normalized * debugRayLength;
-        _dbgRayLine.SetPosition(0, ray.origin);
-        _dbgRayLine.SetPosition(1, rayEnd);
-
-        // (3) Ray hit sphere - Yellow
-        Vector3 hitPos = hit.pose.position;
-        _dbgRayHitSphere = CreateSphere("RayHit_Sphere", hitPos, debugSphereScale, _debugRoot, Color.yellow);
-
-        // (4) LeftEye pose marker - Red cube + Orange forward line
-        _dbgLeftEyeMarker = CreatePoseMarker(
-            "LeftEye_Pose",
-            leftEyePose.position,
-            leftEyePose.rotation,
-            _debugRoot,
-            debugPoseCubeScale,
-            debugForwardLen,
-            debugLineWidth,
-            cubeColor: Color.red,
-            forwardLineColor: new Color(1f, 0.5f, 0f) // orange
-        );
-
-        // (5) Main Camera pose marker - Green cube + Blue forward line
-        _dbgMainCamMarker = CreatePoseMarker(
-            "MainCamera_Pose",
-            mainCamTf.position,
-            mainCamTf.rotation,
-            _debugRoot,
-            debugPoseCubeScale,
-            debugForwardLen,
-            debugLineWidth,
-            cubeColor: Color.green,
-            forwardLineColor: Color.blue
-        );
-
-        if (debugLogs)
-        {
-            Debug.Log(
-                $"[3DOverlay][DBG-ONCE]\n" +
-                $"  RayOrigin   (Magenta) = {ray.origin}\n" +
-                $"  RayDir      (Cyan)    = {ray.direction}\n" +
-                $"  RayHit       (Yellow) = {hitPos}  hitDist={hit.distance:0.00}  hitType={hit.hitType}\n" +
-                $"  LeftEyePose   (Red/Orange)\n" +
-                $"    pos={leftEyePose.position}\n" +
-                $"    euler={leftEyePose.rotation.eulerAngles}\n" +
-                $"    quat={leftEyePose.rotation}\n" +
-                $"  MainCamPose   (Green/Blue)\n" +
-                $"    pos={mainCamTf.position}\n" +
-                $"    euler={mainCamTf.rotation.eulerAngles}\n" +
-                $"    quat={mainCamTf.rotation}"
-            );
-        }
-    }
-
-    private static GameObject CreateSphere(string name, Vector3 pos, float scale, Transform parent, Color color)
-    {
-        var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        go.name = name;
-        go.transform.SetParent(parent, false);
-        go.transform.position = pos;
-        go.transform.localScale = Vector3.one * scale;
-
-        var col = go.GetComponent<Collider>();
-        if (col != null) Object.Destroy(col);
-
-        ApplyColor(go, color);
-        return go;
-    }
-
-    private static LineRenderer CreateWorldLine(string name, Transform parent, float width, Color color)
-    {
-        var go = new GameObject(name);
-        go.transform.SetParent(parent, false);
-
-        var lr = go.AddComponent<LineRenderer>();
-        lr.useWorldSpace = true;
-        lr.positionCount = 2;
-        lr.startWidth = width;
-        lr.endWidth = width;
-
-        var mat = MakeUnlitMat(color);
-        lr.material = mat;
-        if (lr.material != null) lr.material.renderQueue = 5000;
-
-        return lr;
-    }
-
-    // Pose marker: rotated cube + forward line (local space)
-    private static Transform CreatePoseMarker(
-        string name,
-        Vector3 pos,
-        Quaternion rot,
-        Transform parent,
-        float cubeScale,
-        float forwardLen,
-        float lineWidth,
-        Color cubeColor,
-        Color forwardLineColor
-    )
-    {
-        var root = new GameObject(name).transform;
-        root.SetParent(parent, false);
-        root.SetPositionAndRotation(pos, rot);
-
-        // rotated cube (shows rotation visually)
-        var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        cube.name = "Body_Cube";
-        cube.transform.SetParent(root, false);
-        cube.transform.localPosition = Vector3.zero;
-        cube.transform.localRotation = Quaternion.identity;
-        cube.transform.localScale = Vector3.one * cubeScale;
-
-        var cubeCol = cube.GetComponent<Collider>();
-        if (cubeCol != null) Object.Destroy(cubeCol);
-        ApplyColor(cube, cubeColor);
-
-        // forward line in local space (so it rotates with root)
-        var fwdGO = new GameObject("Forward_Line");
-        fwdGO.transform.SetParent(root, false);
-
-        var lr = fwdGO.AddComponent<LineRenderer>();
-        lr.useWorldSpace = false; // local
-        lr.positionCount = 2;
-        lr.startWidth = lineWidth;
-        lr.endWidth = lineWidth;
-        lr.material = MakeUnlitMat(forwardLineColor);
-        if (lr.material != null) lr.material.renderQueue = 5000;
-
-        lr.SetPosition(0, Vector3.zero);
-        lr.SetPosition(1, Vector3.forward * forwardLen);
-
-        return root;
-    }
-
-    private static void ApplyColor(GameObject go, Color color)
-    {
-        var r = go.GetComponent<Renderer>();
-        if (r == null) return;
-
-        var mat = MakeUnlitMat(color);
-        if (mat != null)
-        {
-            mat.renderQueue = 5000;
-            r.material = mat;
-        }
-    }
-
-    private static Material MakeUnlitMat(Color color)
-    {
-        Shader sh = Shader.Find("Unlit/Color");
-        if (sh == null) sh = Shader.Find("Sprites/Default");
-        if (sh == null) return null;
-
-        var mat = new Material(sh);
-
-        // common properties
-        if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
-        if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
-
-        return mat;
-    }
-
     // ----- Left-eye stereo ray utilities -----
 
     public static Ray ViewportPointToStereoRay(Camera cam, Vector2 viewport01, Camera.StereoscopicEye eye)
@@ -602,5 +347,68 @@ public class Detection3DOverlay_ARFoundation_LeftEye : MonoBehaviour
         Vector3 dirWorld = camPose.rotation * dirCam;
 
         return new Ray(camPose.position, dirWorld);
+    }
+
+    [System.Serializable]
+    public struct DebugRayItem
+    {
+        public Ray ray;
+        public bool hasHit;
+        public Pose hitPose;
+        public TrackableType hitType;
+        public int classId;
+        public float score;
+    }
+
+    [System.Serializable]
+    public struct DebugSnapshot
+    {
+        public Pose leftEyePose;
+        public Pose mainCamPose;
+        public List<DebugRayItem> rays;
+    }
+
+    public bool TryBuildDebugSnapshot(out DebugSnapshot snapshot)
+    {
+        snapshot = default;
+
+        var dets = detector.Detections;
+        int count = Mathf.Min(dets.Count, maxBoxes);
+        if (count <= 0) return false;
+
+        Pose eyePose = GetEyePose(xrCamera, Camera.StereoscopicEye.Left);
+
+        snapshot.leftEyePose = eyePose;
+        snapshot.mainCamPose = new Pose(xrCamera.transform.position, xrCamera.transform.rotation);
+        snapshot.rays = new List<DebugRayItem>(count);
+
+        for (int i = 0; i < count; i++)
+        {
+            var d = dets[i];
+
+            // (옵션) tvmonitor는 스킵하고 싶으면 여기 한 줄
+            // if (detector.ClassName(d.classId) == "tvmonitor") continue;
+
+            Vector4 b = d.box;
+            Vector2 uvCenter = new Vector2((b.x + b.z) * 0.5f, (b.y + b.w) * 0.5f);
+            if (flipY) uvCenter.y = 1f - uvCenter.y;
+
+            Vector2 pxCenter = new Vector2(uvCenter.x * imageW, uvCenter.y * imageH);
+            Ray r = PixelToWorldRay_FromIntrinsics(pxCenter, eyePose);
+
+            bool hasHit = TryARRaycast(r, out var hit);
+
+            snapshot.rays.Add(new DebugRayItem
+            {
+                ray = r,
+                hasHit = hasHit,
+                hitPose = hasHit ? hit.pose : default,
+                hitType = hasHit ? hit.hitType : 0,
+                classId = d.classId,
+                score = d.score
+            });
+        }
+
+        return snapshot.rays.Count > 0;
     }
 }
