@@ -2,6 +2,8 @@ using UnityEngine;
 using System.Threading.Tasks;
 using AndroidXRUnitySamples.Noonchi;
 using UnityEngine.XR;
+using System.Collections.Generic;
+
 // CameraCaptureBridge, CameraFrameData 사용 --> 샘플의 /Gemini, CameraCaptureSample.cs 참고
 
 #if UNITY_ANDROID
@@ -22,9 +24,11 @@ public class CameraCapture : MonoBehaviour
     [SerializeField] private Transform xrRigRoot;
     [SerializeField] private int runDetectionEveryNFrames = 3;
     private int _frameCounter;
+    private InputDevice _leftEyeDevice;
 
     private async void Start()
     {
+        InitializeLeftEyeDevice(); // 에러 핸들링 하지 않음
         // 캡처 브릿지 생성 + 구독은 카메라 권한 승인 여부를 받아온 이후에 함
         bool granted = await EnsureCameraPermission();
         if (!granted) return;
@@ -69,10 +73,11 @@ public class CameraCapture : MonoBehaviour
 
         // JPEG --> LoadImage
         _tex.LoadImage(frame.ImageData);
-        Pose cameraPose = GetLeftEyeWorldPose(xrRigRoot);
+        //Pose cameraPose = GetLeftEyeWorldPose(xrRigRoot);
 
         if (detector != null && (_frameCounter++ % runDetectionEveryNFrames == 0))
-            detector.SubmitFrame(_tex, cameraPose);
+            if (!TryGetLeftEyePose(out var cameraPose)) return;
+            else detector.SubmitFrame(_tex, cameraPose);
     }
 
     private void OnError(CameraCaptureError err)
@@ -98,6 +103,24 @@ public class CameraCapture : MonoBehaviour
             Destroy(_tex);
             _tex = null;
         }
+    }
+
+    private void InitializeLeftEyeDevice()
+    {
+        var devices = new List<InputDevice>(4);
+        InputDevices.GetDevicesAtXRNode(XRNode.LeftEye, devices);
+        _leftEyeDevice = devices[0];
+    }
+
+    private bool TryGetLeftEyePose(out Pose pose)
+    {
+        pose = default;
+        bool gotPos = _leftEyeDevice.TryGetFeatureValue(CommonUsages.leftEyePosition, out var pos);
+        bool gotRot = _leftEyeDevice.TryGetFeatureValue(CommonUsages.leftEyeRotation, out var rot);
+        if (!gotPos || !gotRot) return false;
+
+        pose = new Pose(pos, rot);
+        return true;
     }
 
     public static Pose GetLeftEyeWorldPose(Transform xrRigRoot)

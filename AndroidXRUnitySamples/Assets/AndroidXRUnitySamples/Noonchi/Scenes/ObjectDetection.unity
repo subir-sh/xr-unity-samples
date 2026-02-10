@@ -167,7 +167,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ObjectDetector
   sentisModel: {fileID: 5022602860645237092, guid: 69ab50aef18ae412cac4b305492d527c, type: 3}
   backend: 256
-  minIntervalSeconds: 0.15
+  minIntervalSeconds: 0.1
   keepLatestRequestWhileBusy: 1
   scoreThreshold: 0.25
   iouThreshold: 0.55
@@ -202,7 +202,7 @@ MonoBehaviour:
   labelRefScale: 1
   labelMinScale: 0.7
   labelMaxScale: 2.5
-  persistSeconds: 0.2
+  persistSeconds: 0.1
   invertForward: 0
   clampMinSize: 1
   minSizeMeters: 0.02
@@ -307,7 +307,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 143225860620821788, guid: 4dd8498898f5d44a2a6d33cefd150557, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 199922940647785467, guid: 4dd8498898f5d44a2a6d33cefd150557, type: 3}
       propertyPath: m_LocalPosition.x
@@ -457,7 +457,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1114236054}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e6df71824f341bc4897680bb8beb4090, type: 3}
   m_Name: 
@@ -480,7 +480,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1114236054}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: eafe869e49e7e36408344a1ca64214ea, type: 3}
   m_Name: 
@@ -500,6 +500,69 @@ MonoBehaviour:
       m_SingletonActionBindings: []
       m_Flags: 0
     m_Reference: {fileID: 187161793506945269, guid: c348712bda248c246b8c49b3db54643f, type: 3}
+--- !u!1 &1306035387
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1306035389}
+  - component: {fileID: 1306035388}
+  m_Layer: 0
+  m_Name: RaycastDebugUI (Pinch with left hand to record)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!114 &1306035388
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1306035387}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: df48e89618f7af44ea9232f16fff65ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RaycastDebugUI
+  provider: {fileID: 325826006}
+  pinchAction:
+    m_UseReference: 1
+    m_Action:
+      m_Name: Pinch
+      m_Type: 0
+      m_ExpectedControlType: 
+      m_Id: e805dd4e-1007-454a-b260-3be5266c93a7
+      m_Processors: 
+      m_Interactions: 
+      m_SingletonActionBindings: []
+      m_Flags: 0
+    m_Reference: {fileID: -6131295136447488360, guid: c348712bda248c246b8c49b3db54643f, type: 3}
+  clearPreviousOnPinch: 1
+  debugSphereScale: 0.02
+  debugPoseCubeScale: 0.035
+  debugForwardLen: 0.18
+  debugLineWidth: 0.004
+  debugRayLengthIfMiss: 3
+--- !u!4 &1306035389
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1306035387}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 88.05604, y: 0, z: 439.35895}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!4 &1397297929 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5481252163239370687, guid: 4dd8498898f5d44a2a6d33cefd150557, type: 3}
@@ -561,3 +624,4 @@ SceneRoots:
   - {fileID: 1640362851}
   - {fileID: 669920985}
   - {fileID: 325826004}
+  - {fileID: 1306035389}

@@ -3,7 +3,6 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.XR.Interaction.Toolkit.Interactors.Visuals;
 using TMPro;
-//using AndroidXRUnitySamples;
 
 public class NoonchiGazeHUD : MonoBehaviour
 {

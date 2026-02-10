@@ -63,7 +63,7 @@ EditorBuildSettings:
     path: Assets/AndroidXRUnitySamples/SurfaceCanvas/Scenes/SurfaceCanvas.unity
     guid: bf1a4bbd4e30bac48ac697d99a377c62
   - enabled: 0
-    path: Assets/AndroidXRUnitySamples/Noonchi/Scenes/GazeTrackingTest.unity
+    path: Assets/AndroidXRUnitySamples/Noonchi/Scenes/TrialAndError/GazeTrackingTest.unity
     guid: 570db6648ee25ef41a131575ea1e0776
   m_configObjects:
     UnityEditor.XR.ARCore.ARCoreSettings: {fileID: 11400000, guid: 1b3a7e8e1b1db024e8a485ef5d948691, type: 2}

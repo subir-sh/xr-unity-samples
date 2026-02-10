@@ -64,6 +64,10 @@ public class DetectionUIDrawer : MonoBehaviour
     private void LateUpdate()
     {
         var dets = detector.Detections;
+
+        if (Time.frameCount % 30 == 0)
+            Debug.Log($"[Noonchi]: UIDrawer LateUpdate detCount={(dets == null ? -1 : dets.Count)}");
+
         if (dets == null || dets.Count == 0)
         {
             CleanupExpired(); // persist seconds가 지난 박스 제거 
@@ -160,7 +164,7 @@ public class DetectionUIDrawer : MonoBehaviour
         float y = (canvasCenterY - cy) / fy;
 
         // Local Space to World Space
-        Vector3 dirCamera = new Vector3(-x, y, -1f).normalized; 
+        Vector3 dirCamera = new Vector3(x, y, 1f).normalized; 
         // -x, y, -1: 카메라 forward / pinhole 모델 좌우축 정의에 따라 달라질 수도 있음 
         Vector3 dirWorld = camPose.rotation * dirCamera;
         // 카메라 로컬 방향을 카메라 회전으로 돌려서, 월드 방향으로 변환
@@ -355,5 +359,65 @@ public class DetectionUIDrawer : MonoBehaviour
         lr.SetPosition(1, new Vector3(hx, -hy, 0f));
         lr.SetPosition(2, new Vector3(hx, hy, 0f));
         lr.SetPosition(3, new Vector3(-hx, hy, 0f));
+    }
+
+    // 디버그용
+    [System.Serializable]
+    public struct DebugRayItem
+    {
+        public Ray ray;
+        public bool hasHit;
+        public Pose hitPose;
+        public int classId;
+        public float score;
+    }
+
+    [System.Serializable]
+    public struct DebugSnapshot
+    {
+        public Pose leftEyePose;
+        public Pose mainCamPose;
+        public List<DebugRayItem> rays;
+    }
+
+    public bool TryBuildDebugSnapshot(out DebugSnapshot snapshot)
+    {
+        snapshot = default;
+
+        var dets = detector.Detections;
+        if (dets == null || dets.Count == 0) return false;
+
+        Pose eyePose = detector.getCachedCameraPose(); // 네 최신 코드에서 쓰는 eyePose
+        snapshot.leftEyePose = eyePose;
+        snapshot.mainCamPose = new Pose(xrCamera.transform.position, xrCamera.transform.rotation);
+
+        int count = Mathf.Min(dets.Count, 30); // maxBoxes가 없으니 일단 30. 원하면 serialize로 빼
+        snapshot.rays = new List<DebugRayItem>(count);
+
+        for (int i = 0; i < count; i++)
+        {
+            var d = dets[i];
+
+            // 1) inference -> uvCenter
+            Vector4 b = d.box;
+            GetInferenceFromBox(b, flipY, out var uvCenter, out _, out _);
+
+            // 2) uvCenter -> world ray
+            Ray centerRay = InferenceToWorldRay(uvCenter, eyePose);
+
+            // 3) physics hit
+            bool hasHit = TryPhysicsRaycast(centerRay, out var hit);
+
+            snapshot.rays.Add(new DebugRayItem
+            {
+                ray = centerRay,
+                hasHit = hasHit,
+                hitPose = hasHit ? new Pose(hit.point, Quaternion.identity) : default, // physics는 pose가 없어서 point만
+                classId = d.classId,
+                score = d.score
+            });
+        }
+
+        return snapshot.rays.Count > 0;
     }
 }

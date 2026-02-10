@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.InferenceEngine;
-using System.Runtime.InteropServices.WindowsRuntime;
 
 public class ObjectDetector : MonoBehaviour
 {
@@ -45,6 +44,7 @@ public class ObjectDetector : MonoBehaviour
     private Texture _pendingTexture = null;
 
     private Pose cachedCameraPose;
+    private Pose _pendingCameraPose;
     public readonly List<Detection> Detections = new();
 
     [Serializable]
@@ -102,12 +102,12 @@ public class ObjectDetector : MonoBehaviour
         if (!_isRunning || keepLatestRequestWhileBusy) 
         {
             _pendingTexture = sourceTexture;
+            _pendingCameraPose = cameraPose;
         }
 
         // If not running, try to start based on throttle rules
         if (!_isRunning)
         {
-            cachedCameraPose = cameraPose;
             TryStartInferenceIfDue();
         }
     }
@@ -118,9 +118,11 @@ public class ObjectDetector : MonoBehaviour
 
         // Kick off
         var tex = _pendingTexture;
+        var pose = _pendingCameraPose;
         _pendingTexture = null;
         if (tex == null) return;
 
+        cachedCameraPose = pose;
         _isRunning = true;
         _lastRunTime = Time.unscaledTime;
         StartCoroutine(RunInferenceCoroutine(tex));
