@@ -50,5 +50,8 @@ TagManager:
   - name: VST
     uniqueID: 798520999
     locked: 0
+  - name: UI
+    uniqueID: 1431231511
+    locked: 0
   m_RenderingLayers:
   - Default

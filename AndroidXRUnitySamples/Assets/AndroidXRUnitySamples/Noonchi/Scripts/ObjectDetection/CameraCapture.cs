@@ -15,8 +15,10 @@ public class CameraCapture : MonoBehaviour
     [SerializeField] private int width = 640;
     [SerializeField] private int height = 640;
 
+    [Header("Refs")]
     [SerializeField] private ObjectDetector detector;
-    [SerializeField] private Transform xrRigRoot;
+    [SerializeField] private GazeTracker gazeTracker;
+    //[SerializeField] private Transform xrRigRoot;
     [SerializeField] private int runDetectionEveryNFrames = 3; // N frame마다 detector call
 
     private CameraCaptureBridge _bridge;
@@ -71,10 +73,13 @@ public class CameraCapture : MonoBehaviour
 
         // JPEG --> LoadImage
         _tex.LoadImage(frame.ImageData);
+        if (!TryGetLeftEyePose(out var cameraPose)) return;
 
-        if (detector != null && (_frameCounter++ % runDetectionEveryNFrames == 0))
-            if (!TryGetLeftEyePose(out var cameraPose)) return;
-            else detector.SubmitFrame(_tex, cameraPose); // 실제 모델에 보내기 
+        if (detector != null && (_frameCounter++ % runDetectionEveryNFrames == 0)) 
+        {
+            detector.SubmitFrame(_tex, cameraPose); // 실제 모델에 보내기 
+        }
+        if (gazeTracker != null) gazeTracker.SetLatestFrame(_tex, cameraPose);
     }
 
     // Left eye camera의 Pose를 받아오기 위한 작업

@@ -167,6 +167,7 @@ MonoBehaviour:
   width: 640
   height: 640
   detector: {fileID: 325826005}
+  gazeTracker: {fileID: 1720856352}
   xrRigRoot: {fileID: 1397297929}
   runDetectionEveryNFrames: 3
 --- !u!1 &325826003
@@ -657,7 +658,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NoonchiGazeHUD
   reticleVisual: {fileID: 1114236055}
-  screenCamera: {fileID: 1114236053}
+  intrinsics: {fileID: 11400000, guid: b7d9f77efba63004085445a52ec647cf, type: 2}
   pinchAction:
     m_UseReference: 1
     m_Action:
@@ -669,7 +670,8 @@ MonoBehaviour:
       m_Interactions: 
       m_SingletonActionBindings: []
       m_Flags: 0
-    m_Reference: {fileID: 187161793506945269, guid: c348712bda248c246b8c49b3db54643f, type: 3}
+    m_Reference: {fileID: -6131295136447488360, guid: c348712bda248c246b8c49b3db54643f, type: 3}
+  gazePreviewRenderer: {fileID: 0}
 --- !u!4 &1720856353
 Transform:
   m_ObjectHideFlags: 0
