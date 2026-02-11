@@ -14,6 +14,8 @@ public class GazeTracker : MonoBehaviour
 
     [Header("For Debugging: Save photo into gallery when input")]
     [SerializeField] private InputActionProperty pinchAction;
+    [SerializeField] private RawImage debugPreview;
+    private Texture2D _freezeTex; // 디버깅을 위해: 프레임 스냅샷
 
     // XRInteractorReticleVisual private fields
     private FieldInfo _fiTargetEndPoint;
@@ -113,11 +115,14 @@ public class GazeTracker : MonoBehaviour
         pixel = default;
 
         // World Space -> Camera Local Space
-        // 2D -> 3D 한 것을 역방향으로 복구
-        Vector3 v = worldPoint - camPose.position;
-        Vector3 pCam = Quaternion.Inverse(camPose.rotation) * v;
+        Vector3 v = worldPoint - camPose.position; // v = “카메라에서 hit point까지” 향하는 벡터
+        Vector3 pCam = Quaternion.Inverse(camPose.rotation) * v; // world space 벡터 v를 camera local space 벡터로 변환 
         if (pCam.z <= 1e-6f) return false; // 0 or 음수면 x/z, y/z에서 터질수도
 
+        // 원래 world ray를 쏠 때, (x, y, 1) 방향으로 쏨:
+        // 그렇다면 world hit point는 t*(x, y, 1) 형태가 됨.
+        // 따라서 /z를 통해서 t를 소거하여, normalized 방향으로 돌아감 -> (x, y, 1) 복구
+        // 즉, 여기의 x, y는 canvasCenterX/Y에 해당 (viewport 좌표계)
         float x = intr.fx * (pCam.x / pCam.z) + intr.cx;
         float y = intr.fy * (pCam.y / pCam.z) + intr.cy;
 
@@ -179,12 +184,25 @@ public class GazeTracker : MonoBehaviour
         if (OverlayGazeOnFrame(_latestFrame, _latestPose, out var overlayed, out var gazePx))
         {
             // DrawDotInPlace(_latestFrame, 0, 0, 6); // to check where the origin for the image is 
-            var bytes = overlayed.EncodeToPNG();
-            AndroidGallerySaver.SaveImageToGallery(
-                bytes,
-                $"gaze_{System.DateTime.Now:HHmmss_fff}_x{(int)gazePx.x}_y{(int)gazePx.y}",
-                "image/png"
-            );
+            // 스냅샷 뜨기
+            if (_freezeTex == null || _freezeTex.width != overlayed.width || _freezeTex.height != overlayed.height)
+            {
+                if (_freezeTex != null) Destroy(_freezeTex);
+                _freezeTex = new Texture2D(overlayed.width, overlayed.height, TextureFormat.RGBA32, false);
+            }
+
+            _freezeTex.SetPixels32(overlayed.GetPixels32()); // 복붙
+            _freezeTex.Apply(false, false); // updateMipmaps, makeNoLongerReadable
+
+            if (debugPreview != null) debugPreview.texture = _freezeTex;
+
+            // 다른 방식: 기기에 저장
+            // var bytes = overlayed.EncodeToPNG();
+            //AndroidGallerySaver.SaveImageToGallery(
+            //    bytes,
+            //    $"gaze_{System.DateTime.Now:HHmmss_fff}_x{(int)gazePx.x}_y{(int)gazePx.y}",
+            //    "image/png"
+            //);
             Debug.Log($"[GazeTracker] pixel=({gazePx.x:F1},{gazePx.y:F1}) tex={overlayed.width}x{overlayed.height}");
         }
         else
