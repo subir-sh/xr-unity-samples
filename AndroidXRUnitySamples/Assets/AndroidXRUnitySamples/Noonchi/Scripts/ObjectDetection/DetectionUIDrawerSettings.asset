@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5acd118878392b64c9244b70ef3fdba2, type: 3}
+  m_Name: DetectionUIDrawerSettings
+  m_EditorClassIdentifier: Assembly-CSharp::DetectionUIDrawerSettings
+  maxDistance: 10
+  flipY: 1
+  drawOutline: 1
+  outlineWidth: 0.003
+  showLabel: 1
+  labelFaceEye: 1
+  labelDepthOffset: 0.015
+  labelFontSize: 0.35
+  stabilizeLabelSize: 1
+  labelRefDistance: 1
+  labelRefScale: 1
+  labelMinScale: 0.7
+  labelMaxScale: 2.5
+  persistSeconds: 0.2
+  invertForward: 0
+  clampMinSize: 1
+  minSizeMeters: 0.02

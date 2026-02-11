@@ -119,6 +119,56 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &17689866
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 17689867}
+  - component: {fileID: 17689868}
+  m_Layer: 0
+  m_Name: CameraCapturer
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &17689867
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 17689866}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 84.41225, y: 0, z: 510.21576}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &17689868
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 17689866}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 101887477630e7546839b4c0c2e73cef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CameraCapture
+  cameraIndex: 0
+  width: 640
+  height: 640
+  detector: {fileID: 325826005}
+  xrRigRoot: {fileID: 1397297929}
+  runDetectionEveryNFrames: 3
 --- !u!1 &325826003
 GameObject:
   m_ObjectHideFlags: 0
@@ -128,11 +178,10 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 325826004}
-  - component: {fileID: 325826007}
-  - component: {fileID: 325826006}
   - component: {fileID: 325826005}
+  - component: {fileID: 325826006}
   m_Layer: 0
-  m_Name: ObjectDetection
+  m_Name: DetectedObjectsOverlayDrawer
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -150,7 +199,8 @@ Transform:
   m_LocalPosition: {x: 84.41225, y: 0, z: 510.21576}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 1306035389}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &325826005
@@ -172,9 +222,6 @@ MonoBehaviour:
   scoreThreshold: 0.25
   iouThreshold: 0.55
   labelsTxt: {fileID: 4900000, guid: c01c64149c7930b45a76559caabd5c78, type: 3}
-  boxesOutputName: output_0
-  classIdsOutputName: output_1
-  scoresOutputName: output_2
 --- !u!114 &325826006
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -189,47 +236,41 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DetectionUIDrawer
   detector: {fileID: 325826005}
   xrCamera: {fileID: 1114236053}
-  maxDistance: 10
-  flipY: 1
-  drawOutline: 1
-  outlineWidth: 0.003
-  showLabel: 1
-  labelFaceEye: 1
-  labelDepthOffset: 0.015
-  labelFontSize: 0.35
-  stabilizeLabelSize: 1
-  labelRefDistance: 1
-  labelRefScale: 1
-  labelMinScale: 0.7
-  labelMaxScale: 2.5
-  persistSeconds: 0.1
-  invertForward: 0
-  clampMinSize: 1
-  minSizeMeters: 0.02
-  fx: 386.67
-  fy: 386.67
-  cx: 320
-  cy: 320
-  imageW: 640
-  imageH: 640
---- !u!114 &325826007
-MonoBehaviour:
+  drawerSettings: {fileID: 11400000, guid: 850d545bfb424424e8ccc0f0d932179b, type: 2}
+  intrinsics: {fileID: 11400000, guid: b7d9f77efba63004085445a52ec647cf, type: 2}
+--- !u!1 &375805739
+GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 325826003}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 101887477630e7546839b4c0c2e73cef, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CameraCapture
-  cameraIndex: 0
-  width: 640
-  height: 640
-  detector: {fileID: 325826005}
-  xrRigRoot: {fileID: 1397297929}
-  runDetectionEveryNFrames: 3
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 375805740}
+  m_Layer: 0
+  m_Name: Infra
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &375805740
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 375805739}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 84.41225, y: 0, z: 510.21576}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1640362851}
+  - {fileID: 669920985}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &669920983
 GameObject:
   m_ObjectHideFlags: 0
@@ -256,11 +297,11 @@ Transform:
   m_GameObject: {fileID: 669920983}
   serializedVersion: 2
   m_LocalRotation: {x: 0.60876137, y: -0, z: -0, w: 0.7933534}
-  m_LocalPosition: {x: 100.05, y: 100.05, z: 101}
+  m_LocalPosition: {x: 15.637756, y: 100.05, z: -409.21576}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 375805740}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &669920986
 MonoBehaviour:
@@ -435,9 +476,6 @@ PrefabInstance:
       addedObject: {fileID: 796102648}
     - targetCorrespondingSourceObject: {fileID: 701430407572502677, guid: 4dd8498898f5d44a2a6d33cefd150557, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 1114236056}
-    - targetCorrespondingSourceObject: {fileID: 701430407572502677, guid: 4dd8498898f5d44a2a6d33cefd150557, type: 3}
-      insertIndex: -1
       addedObject: {fileID: 1114236055}
   m_SourcePrefab: {fileID: 100100000, guid: 4dd8498898f5d44a2a6d33cefd150557, type: 3}
 --- !u!20 &1114236053 stripped
@@ -463,7 +501,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.XR.Interaction.Toolkit::UnityEngine.XR.Interaction.Toolkit.Interactors.Visuals.XRInteractorReticleVisual
   m_MaxRaycastDistance: 10
-  m_ReticlePrefab: {fileID: 1409381975502979961, guid: ff72a1be4bd7fad4da8b6b7c2b54d2d8, type: 3}
+  m_ReticlePrefab: {fileID: 1409381975502979961, guid: 51b6f3f4cce682149917f1a65f9fb873, type: 3}
   m_PrefabScalingFactor: 1
   m_UndoDistanceScaling: 1
   m_AlignPrefabWithSurfaceNormal: 1
@@ -473,33 +511,6 @@ MonoBehaviour:
   m_RaycastMask:
     serializedVersion: 2
     m_Bits: 4294967295
---- !u!114 &1114236056
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1114236054}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: eafe869e49e7e36408344a1ca64214ea, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NoonchiGazeHUD
-  reticleVisual: {fileID: 1114236055}
-  screenCamera: {fileID: 1114236053}
-  text: {fileID: 0}
-  pinchAction:
-    m_UseReference: 1
-    m_Action:
-      m_Name: Pinch
-      m_Type: 0
-      m_ExpectedControlType: 
-      m_Id: ef68be2c-256a-48fe-b072-5b1e366b310e
-      m_Processors: 
-      m_Interactions: 
-      m_SingletonActionBindings: []
-      m_Flags: 0
-    m_Reference: {fileID: 187161793506945269, guid: c348712bda248c246b8c49b3db54643f, type: 3}
 --- !u!1 &1306035387
 GameObject:
   m_ObjectHideFlags: 0
@@ -529,7 +540,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: df48e89618f7af44ea9232f16fff65ff, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RaycastDebugUI
-  provider: {fileID: 325826006}
+  provider: {fileID: 0}
   pinchAction:
     m_UseReference: 1
     m_Action:
@@ -556,12 +567,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1306035387}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 88.05604, y: 0, z: 439.35895}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 3.6437912, y: 0, z: -70.85681}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 325826004}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!4 &1397297929 stripped
 Transform:
@@ -609,8 +620,66 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1640362849}
   serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -85.443825, y: 0, z: -489.47736}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 375805740}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1720856351
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1720856353}
+  - component: {fileID: 1720856352}
+  m_Layer: 0
+  m_Name: GazeTracker
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1720856352
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1720856351}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eafe869e49e7e36408344a1ca64214ea, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NoonchiGazeHUD
+  reticleVisual: {fileID: 1114236055}
+  screenCamera: {fileID: 1114236053}
+  pinchAction:
+    m_UseReference: 1
+    m_Action:
+      m_Name: Pinch
+      m_Type: 0
+      m_ExpectedControlType: 
+      m_Id: ef68be2c-256a-48fe-b072-5b1e366b310e
+      m_Processors: 
+      m_Interactions: 
+      m_SingletonActionBindings: []
+      m_Flags: 0
+    m_Reference: {fileID: 187161793506945269, guid: c348712bda248c246b8c49b3db54643f, type: 3}
+--- !u!4 &1720856353
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1720856351}
+  serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -1.03158, y: 0, z: 20.73839}
+  m_LocalPosition: {x: 84.41225, y: 0, z: 510.21576}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -621,7 +690,7 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 1114236052}
-  - {fileID: 1640362851}
-  - {fileID: 669920985}
+  - {fileID: 375805740}
   - {fileID: 325826004}
-  - {fileID: 1306035389}
+  - {fileID: 1720856353}
+  - {fileID: 17689867}

@@ -8,43 +8,9 @@ public class DetectionUIDrawer : MonoBehaviour
     [SerializeField] private ObjectDetector detector;
     [SerializeField] private Camera xrCamera; // 유지(라벨 face eye 등)
 
-    [Header("Physics Raycast")]
-    //[SerializeField] private LayerMask physicsMask = ~0;
-    [SerializeField] private float maxDistance = 10f;
-
-    [Header("BBox coords")]
-    [SerializeField] private bool flipY = true;
-
-    [Header("Visuals")]
-    [SerializeField] private bool drawOutline = true;
-    [SerializeField, Min(0.0001f)] private float outlineWidth = 0.003f;
-
-    [Header("Label")]
-    [SerializeField] private bool showLabel = true;
-    [SerializeField] private bool labelFaceEye = true;
-    [SerializeField] private float labelDepthOffset = 0.015f;
-    [SerializeField] private float labelFontSize = 0.35f;
-
-    [Header("Label Size Stabilization (screen-ish size)")]
-    [SerializeField] private bool stabilizeLabelSize = true;
-    [SerializeField, Min(0.001f)] private float labelRefDistance = 1.0f;
-    [SerializeField, Min(0.0001f)] private float labelRefScale = 1.0f;
-    [SerializeField, Min(0.0001f)] private float labelMinScale = 0.7f;
-    [SerializeField, Min(0.0001f)] private float labelMaxScale = 2.5f;
-
-    [Header("Placement")]
-    [SerializeField, Min(0f)] private float persistSeconds = 0.2f;
-    [SerializeField] private bool invertForward = false;
-    [SerializeField] private bool clampMinSize = true;
-    [SerializeField, Min(0.001f)] private float minSizeMeters = 0.02f;
-
-    [Header("RGB Camera Intrinsics (for 640x640)")]
-    [SerializeField] private float fx = 386.67f;
-    [SerializeField] private float fy = 386.67f;
-    [SerializeField] private float cx = 320f;
-    [SerializeField] private float cy = 320f;
-    [SerializeField] private int imageW = 640;
-    [SerializeField] private int imageH = 640;
+    [Header("Config")]
+    [SerializeField] private DetectionUIDrawerSettings drawerSettings;
+    [SerializeField] private CameraIntrinsics intrinsics;
 
     private readonly List<BoxItem> _active = new();
     private readonly Stack<BoxItem> _pool = new();
@@ -98,32 +64,32 @@ public class DetectionUIDrawer : MonoBehaviour
     {
         // 1) inference -> viewport
         Vector4 b = d.box; // normalized xyxy
-        GetInferenceFromBox(b, flipY, out var uvCenter, out var uvMin, out var uvMax);
+        GetInferenceFromBox(b, drawerSettings.flipY, out var uvCenter, out var uvMin, out var uvMax);
 
         // 2) viewport point -> world ray 
         Ray centerRay = InferenceToWorldRay(uvCenter, eyePose);
 
         // 3) 만들어진 ray 쏘기 -> physics hit 판정
         if (!TryPhysicsRaycast(centerRay, out var hit)) return false;
-        //if (hit.distance <= 0.0001f) return false;
         Vector3 worldCenter = hit.point;
 
-        // 5) compute size on tangent plane
+        // 4) hit 된 지점의 depth에 view-facing plane을 만들고, bbox 가로/세로 근사하여 view-facing UI 박스 준비
         if (!TryComputeSizeMeters(uvMin, uvMax, eyePose, eyePos, worldCenter, out float width, out float height)) return false;
 
-        if (clampMinSize)
-        {
-            width = Mathf.Max(width, minSizeMeters);
-            height = Mathf.Max(height, minSizeMeters);
+        if (drawerSettings.clampMinSize)
+        {  
+            // 작게 그려진 박스들 제거 
+            width = Mathf.Max(width, drawerSettings.minSizeMeters);
+            height = Mathf.Max(height, drawerSettings.minSizeMeters);
         }
 
-        // 6) draw/update visuals
-        var item = GetOrCreate(index);
-        item.lastSeen = Time.unscaledTime;
+        // 5) 실제로 UI overlay 그리고, 업데이트하기
+        var item = GetOrCreate(index); // index에 해당하는 BoxItem을 가져오거나, 새로 생성
+        item.lastSeen = Time.unscaledTime; // 이번 프레임에 갱신됐는지 여부 (CleanupExpired를 위해)
 
-        UpdateTransform(item, worldCenter, eyePos, eyeUp);
-        UpdateOutline(item, width, height);
-        UpdateLabel(item, d, worldCenter, eyePos, eyeUp);
+        UpdateTransform(item, worldCenter, eyePos, eyeUp); // 월드 위치 고정 + 눈을 향하도록 회전
+        UpdateOutline(item, width, height); // 계산된 크기로 3D box 크기 갱신
+        UpdateLabel(item, d, worldCenter, eyePos, eyeUp); // class, score text + label 위치, 스케일, 방향 갱신
 
         return true;
     }
@@ -155,13 +121,13 @@ public class DetectionUIDrawer : MonoBehaviour
         // Inference to Viewport
         // 정규화된 0~1 좌표를 픽셀로 변환
         // uv = uvCenter인데, 넣는 이유: 그 박스를 대표하는 한 점을 world space에서 얻기 위해서 
-        float canvasCenterX = uv.x * imageW;
-        float canvasCenterY = uv.y * imageH;
+        float canvasCenterX = uv.x * intrinsics.imageW;
+        float canvasCenterY = uv.y * intrinsics.imageH;
 
         // Viewport to Local Space 
         // fx, fy, cx, cy는 camera intrinsics 값
-        float x = (canvasCenterX - cx) / fx;
-        float y = (canvasCenterY - cy) / fy;
+        float x = (canvasCenterX - intrinsics.cx) / intrinsics.fx;
+        float y = (canvasCenterY - intrinsics.cy) / intrinsics.fy;
 
         // Local Space to World Space
         Vector3 dirCamera = new Vector3(x, y, 1f).normalized; 
@@ -174,31 +140,35 @@ public class DetectionUIDrawer : MonoBehaviour
     }
 
     // =========================
-    // Depth (Physics)
+    // Depth (Physics Raycast)
     // =========================
     private bool TryPhysicsRaycast(Ray ray, out RaycastHit hit)
-        => Physics.Raycast(ray, out hit, maxDistance);//, physicsMask);
+        => Physics.Raycast(ray, out hit, drawerSettings.maxDistance);//, physicsMask);
 
     // =========================
-    // Size estimation
+    // Bbox Size estimation
     // =========================
     private bool TryComputeSizeMeters(Vector2 uvMin, Vector2 uvMax, Pose eyePose, Vector3 eyePos, Vector3 worldCenter,
                                       out float width, out float height)
     {
         width = height = 0f;
 
+        // TryPhysicsRaycast에서 만들어진 hit을 local world center로 변환하고, 그것을 지나는 view-facing plane을 만듦
         Vector3 normalEyeToCenter = (worldCenter - eyePos).normalized;
         Plane plane = new Plane(normalEyeToCenter, worldCenter);
 
+        // 2D Image 좌표계의 bbox의 두 꼭지점(uvMin, uvMax) 또한 InferenceToWorldRay로 world ray화
         Ray minRay = InferenceToWorldRay(uvMin, eyePose);
         Ray maxRay = InferenceToWorldRay(uvMax, eyePose);
 
+        // 두 꼭지점 ray를 hit center plane과 교차 (physics raycast 아님)
         if (!plane.Raycast(minRay, out float tMin) || !plane.Raycast(maxRay, out float tMax))
             return false;
 
         Vector3 pMin = minRay.GetPoint(tMin);
         Vector3 pMax = maxRay.GetPoint(tMax);
 
+        // 교차된 두 점(pMin, pMax)을 eye 기준 로컬로 바꿔서 두 점의 x, y 차이를 기반으로 bbox 가로/세로 근사
         Quaternion eyeRot = eyePose.rotation;
         Vector3 pMinLocal = Quaternion.Inverse(eyeRot) * (pMin - eyePos);
         Vector3 pMaxLocal = Quaternion.Inverse(eyeRot) * (pMax - eyePos);
@@ -213,8 +183,9 @@ public class DetectionUIDrawer : MonoBehaviour
     // =========================
     private void UpdateTransform(BoxItem item, Vector3 worldCenter, Vector3 eyePos, Vector3 eyeUp)
     {
+        // UI를 world center에 두고, eye로 향하게 한 뒤, TryComputeSizeMeters에서 근사된 크기 적용 
         Vector3 forwardToEye = (eyePos - worldCenter).normalized;
-        if (invertForward) forwardToEye = -forwardToEye;
+        if (drawerSettings.invertForward) forwardToEye = -forwardToEye;
         item.root.SetPositionAndRotation(worldCenter, Quaternion.LookRotation(forwardToEye, eyeUp));
         item.root.localScale = Vector3.one;
     }
@@ -223,15 +194,15 @@ public class DetectionUIDrawer : MonoBehaviour
     {
         if (item.lr == null) return;
 
-        if (!drawOutline)
+        if (!drawerSettings.drawOutline)
         {
             item.lr.enabled = false;
             return;
         }
 
         item.lr.enabled = true;
-        item.lr.startWidth = outlineWidth;
-        item.lr.endWidth = outlineWidth;
+        item.lr.startWidth = drawerSettings.outlineWidth;
+        item.lr.endWidth = drawerSettings.outlineWidth;
         SetOutlineRectLocal(item.lr, width, height);
     }
 
@@ -239,24 +210,24 @@ public class DetectionUIDrawer : MonoBehaviour
     {
         if (item.label == null) return;
 
-        item.label.enabled = showLabel;
-        if (!showLabel) return;
+        item.label.enabled = drawerSettings.showLabel;
+        if (!drawerSettings.showLabel) return;
 
         item.label.text = $"{detector.ClassName(d.classId)} {d.score:0.00}";
-        item.label.fontSize = labelFontSize;
+        item.label.fontSize = drawerSettings.labelFontSize;
 
-        item.labelRoot.localPosition = new Vector3(0f, 0f, +labelDepthOffset);
+        item.labelRoot.localPosition = new Vector3(0f, 0f, +drawerSettings.labelDepthOffset);
 
-        if (stabilizeLabelSize)
+        if (drawerSettings.stabilizeLabelSize)
         {
             float dist = Vector3.Distance(eyePos, worldCenter);
-            float s = (dist / Mathf.Max(0.0001f, labelRefDistance)) * labelRefScale;
-            s = Mathf.Clamp(s, labelMinScale, labelMaxScale);
+            float s = (dist / Mathf.Max(0.0001f, drawerSettings.labelRefDistance)) * drawerSettings.labelRefScale;
+            s = Mathf.Clamp(s, drawerSettings.labelMinScale, drawerSettings.labelMaxScale);
             item.labelRoot.localScale = Vector3.one * s;
         }
         else item.labelRoot.localScale = Vector3.one;
 
-        item.labelRoot.rotation = labelFaceEye
+        item.labelRoot.rotation = drawerSettings.labelFaceEye
             ? Quaternion.LookRotation(item.labelRoot.position - eyePos, eyeUp)
             : item.root.rotation;
     }
@@ -276,7 +247,7 @@ public class DetectionUIDrawer : MonoBehaviour
         {
             var it = _active[i];
             float last = Mathf.Abs(it.lastSeen);
-            if (Time.unscaledTime - last > persistSeconds)
+            if (Time.unscaledTime - last > drawerSettings.persistSeconds)
             {
                 ReturnToPool(it);
                 _active.RemoveAt(i);
@@ -359,65 +330,5 @@ public class DetectionUIDrawer : MonoBehaviour
         lr.SetPosition(1, new Vector3(hx, -hy, 0f));
         lr.SetPosition(2, new Vector3(hx, hy, 0f));
         lr.SetPosition(3, new Vector3(-hx, hy, 0f));
-    }
-
-    // 디버그용
-    [System.Serializable]
-    public struct DebugRayItem
-    {
-        public Ray ray;
-        public bool hasHit;
-        public Pose hitPose;
-        public int classId;
-        public float score;
-    }
-
-    [System.Serializable]
-    public struct DebugSnapshot
-    {
-        public Pose leftEyePose;
-        public Pose mainCamPose;
-        public List<DebugRayItem> rays;
-    }
-
-    public bool TryBuildDebugSnapshot(out DebugSnapshot snapshot)
-    {
-        snapshot = default;
-
-        var dets = detector.Detections;
-        if (dets == null || dets.Count == 0) return false;
-
-        Pose eyePose = detector.getCachedCameraPose(); // 네 최신 코드에서 쓰는 eyePose
-        snapshot.leftEyePose = eyePose;
-        snapshot.mainCamPose = new Pose(xrCamera.transform.position, xrCamera.transform.rotation);
-
-        int count = Mathf.Min(dets.Count, 30); // maxBoxes가 없으니 일단 30. 원하면 serialize로 빼
-        snapshot.rays = new List<DebugRayItem>(count);
-
-        for (int i = 0; i < count; i++)
-        {
-            var d = dets[i];
-
-            // 1) inference -> uvCenter
-            Vector4 b = d.box;
-            GetInferenceFromBox(b, flipY, out var uvCenter, out _, out _);
-
-            // 2) uvCenter -> world ray
-            Ray centerRay = InferenceToWorldRay(uvCenter, eyePose);
-
-            // 3) physics hit
-            bool hasHit = TryPhysicsRaycast(centerRay, out var hit);
-
-            snapshot.rays.Add(new DebugRayItem
-            {
-                ray = centerRay,
-                hasHit = hasHit,
-                hitPose = hasHit ? new Pose(hit.point, Quaternion.identity) : default, // physics는 pose가 없어서 point만
-                classId = d.classId,
-                score = d.score
-            });
-        }
-
-        return snapshot.rays.Count > 0;
     }
 }

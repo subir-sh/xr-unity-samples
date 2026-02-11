@@ -6,7 +6,7 @@ using Unity.InferenceEngine;
 
 public class ObjectDetector : MonoBehaviour
 {
-    [Header("Model")]
+    [Header("Model")] 
     [SerializeField] private ModelAsset sentisModel;
     [SerializeField] private BackendType backend = BackendType.GPUCompute; // CPU or GPU
 
@@ -21,15 +21,14 @@ public class ObjectDetector : MonoBehaviour
     [SerializeField, Range(0f, 1f)] private float scoreThreshold = 0.25f;
     [SerializeField, Range(0f, 1f)] private float iouThreshold = 0.55f;
 
-    [Header("Labels")]
+    [Header("Object Labels")]
     [SerializeField] private TextAsset labelsTxt;
     private string[] _labels;
 
-    [Header("Output Names (3-output models)")]
-    [Tooltip("Logs showed outputs=3 and names like output_0, output_1, output_2. Set them here if different.")]
-    [SerializeField] private string boxesOutputName = "output_0";
-    [SerializeField] private string classIdsOutputName = "output_1";
-    [SerializeField] private string scoresOutputName = "output_2";
+    // YOLOv9t Model output: names with output_0, output_1, output_2
+    private string boxesOutputName = "output_0";
+    private string classIdsOutputName = "output_1";
+    private string scoresOutputName = "output_2";
 
     // --- runtime ---
     private Model _model;
