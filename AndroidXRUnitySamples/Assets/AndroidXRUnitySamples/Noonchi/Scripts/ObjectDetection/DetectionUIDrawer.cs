@@ -203,7 +203,8 @@ public class DetectionUIDrawer : MonoBehaviour
         item.lr.enabled = true;
         item.lr.startWidth = drawerSettings.outlineWidth;
         item.lr.endWidth = drawerSettings.outlineWidth;
-        SetOutlineRectLocal(item.lr, width, height);
+        //SetOutlineRectLocal(item.lr, width, height); // --> bbox 전체 사각형 그리기
+        SetOutlineEllipseLocal(item.lr, width, height); // --> bbox의 width, height를 지름으로 하는 타원 그리기
     }
 
     private void UpdateLabel(BoxItem item, ObjectDetector.Detection d, Vector3 worldCenter, Vector3 eyePos, Vector3 eyeUp)
@@ -330,5 +331,38 @@ public class DetectionUIDrawer : MonoBehaviour
         lr.SetPosition(1, new Vector3(hx, -hy, 0f));
         lr.SetPosition(2, new Vector3(hx, hy, 0f));
         lr.SetPosition(3, new Vector3(-hx, hy, 0f));
+    }
+
+    // 타원 그리기 (r1, r2 = width/2, height/2)
+    private static void SetOutlineEllipseLocal(
+        LineRenderer lr, float width, float height, 
+        int segments = 48,
+        float padding = 0.12f // 0~1: 비율 패딩 (0.12f: 12% 작게 만들기)
+    )
+    {
+        if (lr == null) return;
+
+        float rx = width * 0.5f;
+        float ry = height * 0.5f;
+
+        rx *= (1f - padding);
+        ry *= (1f - padding);
+        rx = Mathf.Max(0.0001f, rx);
+        ry = Mathf.Max(0.0001f, ry);
+
+        segments = Mathf.Clamp(segments, 12, 256);
+
+        lr.loop = true;
+        lr.useWorldSpace = false;
+        lr.positionCount = segments;
+
+        float step = (Mathf.PI * 2f) / segments;
+        for (int i = 0; i < segments; i++)
+        {
+            float a = i * step;
+            float x = Mathf.Cos(a) * rx;
+            float y = Mathf.Sin(a) * ry;
+            lr.SetPosition(i, new Vector3(x, y, 0f));
+        }
     }
 }

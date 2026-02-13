@@ -10,22 +10,20 @@ public class GazeTracker : MonoBehaviour
     [SerializeField] private XRInteractorReticleVisual reticleVisual;
     [SerializeField] private CameraIntrinsics intrinsics;
     private bool flipImageY = false; // 모델이 달라지면 수정해야 할 수도 있음
-    private int dotRadiusPx = 4;
+    private int dotRadiusPx = 4; // gaze point를 의미하는 흰 점의 반지름 크기
 
-    [Header("For Debugging: Save photo into gallery when input")]
+    [Header("For Debugging: Show overlayed image in the canvas when input")]
     [SerializeField] private InputActionProperty pinchAction;
     [SerializeField] private RawImage debugPreview;
-    private Texture2D _freezeTex; // 디버깅을 위해: 프레임 스냅샷
 
     // XRInteractorReticleVisual private fields
     private FieldInfo _fiTargetEndPoint;
     private FieldInfo _fiHasRaycastHit;
 
+    // For logging
     private Texture2D _latestFrame;
     private Pose _latestPose;
     private bool _hasLatestPose;
-
-    // private bool _trackingEnabled;
 
     void Awake()
     {
@@ -36,46 +34,70 @@ public class GazeTracker : MonoBehaviour
         _fiHasRaycastHit  = t.GetField("m_HasRaycastHit",  BindingFlags.Instance | BindingFlags.NonPublic);
     }
 
+    // =========================
+    // Public API
+    // =========================
+
+    [Serializable]
+    public struct CurrentGaze
+    {
+        public Texture2D currentImage;          // pinch 시점의 원본 프레임(그대로)
+        public Texture2D currentImageWithGaze;  // 복사본 + 흰 점 overlay
+        public Vector2 gazePixelXY;             // 이미지 픽셀 좌표 (x,y) -> left bottom이 0, 0
+        public bool hasHit;                     // gaze가 뭔가를 hit 했는지
+    }
+
     /// <summary>
     /// Overlay gaze point onto a left-eye RGB frame and return the gaze pixel position (x,y).
     /// - Input: the captured frame Texture2D (left-eye), pose of that frame, and its intrinsics.
-    /// - Output: overlayed frame (same instance, modified in-place) and gaze pixel.
+    /// - Output: original frame, overlayed frame (same instance, modified in-place) and gaze pixel.
     /// </summary>
-    public bool OverlayGazeOnFrame(
-        Texture2D frame,
-        Pose leftEyePose,
-        out Texture2D overlayedImage,
-        out Vector2 gazePixelXY)
+    public bool GetCurrentGaze(out CurrentGaze result)
     {
-        overlayedImage = frame;
-        gazePixelXY = new Vector2(float.NaN, float.NaN);
+        result = default;
 
-        //if (!_trackingEnabled) return false;
-        if (frame == null) return false;
-        
-        // gaze reticle이 현재 씬의 다른 물체와 hit하고 있는지 판정: 
+        // 최신 프레임/포즈 없으면 실패
+        if (_latestFrame == null || !_hasLatestPose) return false;
+
+        // reticle hit 여부 먼저 확인
         // hit 했을 경우 그 지점(즉, gaze의 world space 상 좌표) = worldPoint 
         if (!TryReadFromReticle(out var worldPoint, out var hasHit)) return false;
-
-        // 만약 gaze가 씬의 다른 물체와 hit하지 않았다면, 아무것도 그리지 않음
         if (!hasHit) return false;
 
+        // world -> image pixel
         if (!TryProjectWorldToImagePixel(
                 worldPoint,
-                leftEyePose,
+                _latestPose,
                 intrinsics,
-                frame.width,
-                frame.height,
+                _latestFrame.width,
+                _latestFrame.height,
                 flipImageY,
                 out var px))
             return false;
 
-        gazePixelXY = px;
+        // dot 찍힐 이미지 복사본 만들기 (원본 보호)
+        Texture2D dotted = CopyTexture(_latestFrame);
+        DrawDotInPlace(dotted, Mathf.RoundToInt(px.x), Mathf.RoundToInt(px.y), dotRadiusPx);
 
-        DrawDotInPlace(frame, Mathf.RoundToInt(px.x), Mathf.RoundToInt(px.y), dotRadiusPx);
+        result = new CurrentGaze
+        {
+            currentImage = _latestFrame,
+            currentImageWithGaze = dotted,
+            gazePixelXY = px,
+            hasHit = true
+        };
+
         return true;
     }
 
+    // CameraCapture에서 카메라 정보 주입 받음
+    public void SetLatestFrame(Texture2D frame, Pose leftEyePose)
+    {
+        _latestFrame = frame;
+        _latestPose = leftEyePose;
+        _hasLatestPose = true;
+    }
+    
     // =========================
     // Internals
     // =========================
@@ -121,10 +143,10 @@ public class GazeTracker : MonoBehaviour
 
         // 원래 world ray를 쏠 때, (x, y, 1) 방향으로 쏨:
         // 그렇다면 world hit point는 t*(x, y, 1) 형태가 됨.
-        // 따라서 /z를 통해서 t를 소거하여, normalized 방향으로 돌아감 -> (x, y, 1) 복구
+        // 따라서 /z를 통해서 t를 소거하여, normalize -> (x, y, 1) 복구
         // 즉, 여기의 x, y는 canvasCenterX/Y에 해당 (viewport 좌표계)
-        float x = intr.fx * (pCam.x / pCam.z) + intr.cx;
-        float y = intr.fy * (pCam.y / pCam.z) + intr.cy;
+        float x = intr.fx * (pCam.x / pCam.z) + intr.cx - 12f; // 마지막 float -> empirical하게 얻은 보정치
+        float y = intr.fy * (pCam.y / pCam.z) + intr.cy + 12f;
 
         // 만약 intrinsics를 다른 해상도에서 얻었을 경우 보정하는 코드
         // float sx = (intr.imageW > 0.5f) ? (texW / intr.imageW) : 1f;
@@ -171,44 +193,42 @@ public class GazeTracker : MonoBehaviour
         tex.Apply(updateMipmaps: false, makeNoLongerReadable: false);
     }
 
-    public void SetLatestFrame(Texture2D frame, Pose leftEyePose)
+    private static Texture2D CopyTexture(Texture2D src)
     {
-        _latestFrame = frame;
-        _latestPose = leftEyePose;
-        _hasLatestPose = true;
+        // src가 RGBA32가 아닐 수 있으니, 안전하게 RGBA32로 새로 만든다
+        var dst = new Texture2D(src.width, src.height, TextureFormat.RGBA32, false);
+        dst.SetPixels32(src.GetPixels32());
+        dst.Apply(false, false);
+        return dst;
     }
+
+    // =========================
+    // Logging
+    // =========================
 
     private void OnPinchPerformed(InputAction.CallbackContext ctx)
     {
-        if (_latestFrame == null || !_hasLatestPose) return;
-        if (OverlayGazeOnFrame(_latestFrame, _latestPose, out var overlayed, out var gazePx))
-        {
-            // DrawDotInPlace(_latestFrame, 0, 0, 6); // to check where the origin for the image is 
-            // 스냅샷 뜨기
-            if (_freezeTex == null || _freezeTex.width != overlayed.width || _freezeTex.height != overlayed.height)
-            {
-                if (_freezeTex != null) Destroy(_freezeTex);
-                _freezeTex = new Texture2D(overlayed.width, overlayed.height, TextureFormat.RGBA32, false);
-            }
-
-            _freezeTex.SetPixels32(overlayed.GetPixels32()); // 복붙
-            _freezeTex.Apply(false, false); // updateMipmaps, makeNoLongerReadable
-
-            if (debugPreview != null) debugPreview.texture = _freezeTex;
-
-            // 다른 방식: 기기에 저장
-            // var bytes = overlayed.EncodeToPNG();
-            //AndroidGallerySaver.SaveImageToGallery(
-            //    bytes,
-            //    $"gaze_{System.DateTime.Now:HHmmss_fff}_x{(int)gazePx.x}_y{(int)gazePx.y}",
-            //    "image/png"
-            //);
-            Debug.Log($"[GazeTracker] pixel=({gazePx.x:F1},{gazePx.y:F1}) tex={overlayed.width}x{overlayed.height}");
-        }
-        else
+        if (!GetCurrentGaze(out var g))
         {
             Debug.Log("[GazeTracker] no hit / projection failed");
+            return;
         }
+
+        // debug preview in Unity scene canvas
+        if (debugPreview != null) debugPreview.texture = g.currentImageWithGaze;
+        //SaveOverlayToGallery(g.currentImageWithGaze, g.gazePixelXY);
+
+        Debug.Log($"[GazeTracker] pixel=({g.gazePixelXY.x:F1},{g.gazePixelXY.y:F1}) tex={g.currentImage.width}x{g.currentImage.height}");
+    }
+
+    private static void SaveOverlayToGallery(Texture2D overlayed, Vector2 gazePx)
+    {
+        var bytes = overlayed.EncodeToPNG();
+        AndroidGallerySaver.SaveImageToGallery(
+            bytes,
+            $"gaze_{System.DateTime.Now:HHmmss_fff}_x{(int)gazePx.x}_y{(int)gazePx.y}",
+            "image/png"
+        );
     }
 
     void OnEnable()
